@@ -22,10 +22,10 @@ static const char *TAG = "touch";
 
 /* Calibration / display size - change to your display resolution */
 #ifndef DISP_HOR_RES
-#define DISP_HOR_RES    320
+#define DISP_HOR_RES    240
 #endif
 #ifndef DISP_VER_RES
-#define DISP_VER_RES    240
+#define DISP_VER_RES    320
 #endif
 
 static esp_lcd_touch_handle_t s_touch = NULL;
