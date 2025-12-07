@@ -1,44 +1,42 @@
+/*
+ * /home/sumar/Cube_Phone/Cube_OS_v1_alpha/main/main.c
+ * Minimal ESP32 app (ESP-IDF)
+ */
+
+#include <stdio.h>
+#include "freertos/FreeRTOS.h"
+#include "freertos/task.h"
+#include "esp_system.h"
 #include "esp_log.h"
-#include "lvgl.h"
-#include "esp_timer.h"
-#include "bsp/esp_bsp_generic.h"
 
-static const char *TAG = "main";
+#include "display.h"
+#include "touch.h"
 
-static void lvgl_tick(void *arg)
-{
-    lv_tick_inc(1);
-}
+static const char *TAG = "minimal_app";
 
 void app_main(void)
 {
-    ESP_LOGI(TAG, "Starting BSP LVGL example");
+    esp_log_level_set("*", ESP_LOG_INFO);
+    ESP_LOGI(TAG, "Hello ESP32! SDK version: %s", esp_get_idf_version());
 
-    // Initialize display + LVGL + touch
-    bsp_display_start();
+    // Initialize the ILI9341 display with LVGL
+    esp_err_t ret = init_ili9341_with_lvgl();
+    if (ret != ESP_OK) {
+        ESP_LOGE(TAG, "Failed to initialize display: %s", esp_err_to_name(ret));
+        return;
+    }
+    ESP_LOGI(TAG, "Display initialized successfully");
 
-    // Turn on backlight
-    bsp_display_backlight_on();
+    // Initialize touch input
+    lv_indev_t *touch_indev = touch_init_xpt2046();
+    if (touch_indev == NULL) {
+        ESP_LOGE(TAG, "Failed to initialize touch input");
+        return;
+    }
+    ESP_LOGI(TAG, "Touch input initialized successfully");
 
-    // Create periodic timer for LVGL ticks
-    const esp_timer_create_args_t tick_args = {
-        .callback = lvgl_tick,
-        .name = "lvgl_tick"
-    };
-    esp_timer_handle_t tick_timer;
-    esp_timer_create(&tick_args, &tick_timer);
-    esp_timer_start_periodic(tick_timer, 1000); // 1ms tick
-
-    // Create LVGL label
-    lv_obj_t *label = lv_label_create(lv_screen_active());
-    lv_label_set_text(label, "Hello LVGL + BSP!");
-    lv_obj_align(label, LV_ALIGN_CENTER, 0, 0);
-
-    ESP_LOGI(TAG, "LVGL started successfully");
-
-    // Main LVGL loop
-    while (true) {
-        lv_timer_handler();
-        vTaskDelay(pdMS_TO_TICKS(5));
+    while (1) {
+        ESP_LOGI(TAG, "Running...");
+        vTaskDelay(pdMS_TO_TICKS(5000));
     }
 }
