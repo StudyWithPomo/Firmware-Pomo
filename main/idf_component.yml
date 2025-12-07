@@ -18,3 +18,4 @@ dependencies:
   espressif/esp_lvgl_port: ^2.7.0
   espressif/esp_bsp_generic: ^3.0.2
   espressif/esp_lcd_ili9341: ^2.0.1
+  atanisoft/esp_lcd_touch_xpt2046: ^1.0.6
