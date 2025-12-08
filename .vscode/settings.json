@@ -13,5 +13,6 @@
     "--background-index",
     "--query-driver=S:\\.espressif\\tools\\xtensa-esp-elf\\esp-14.2.0_20241119\\xtensa-esp-elf\\bin\\xtensa-esp32-elf-gcc.exe",
     "--compile-commands-dir=s:\\CUBE_PHONE\\Cube_OS_v1_alpha\\build"
-  ]
+  ],
+  "idf.port": "/dev/ttyUSB0"
 }
