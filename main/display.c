@@ -43,13 +43,14 @@ esp_err_t init_ili9341_with_lvgl(void)
         PIN_DC,
         NULL,
         NULL);
+    io_config.pclk_hz = 60 * 1000 * 1000; // 60 MHz
         
     ESP_ERROR_CHECK(esp_lcd_new_panel_io_spi(SPI_HOST, &io_config, &io_handle));
 
     // 3) create the ILI9341 panel driver
     esp_lcd_panel_dev_config_t ili_cfg = {
         .reset_gpio_num = PIN_RST,
-        .rgb_ele_order = LCD_RGB_ELEMENT_ORDER_RGB,
+        .rgb_ele_order = LCD_RGB_ELEMENT_ORDER_BGR,
         .bits_per_pixel = 16,
     };
 
@@ -68,14 +69,15 @@ esp_err_t init_ili9341_with_lvgl(void)
 
     // 6) Initialize LVGL port
     lvgl_port_cfg_t lvgl_cfg = ESP_LVGL_PORT_INIT_CONFIG();
+    lvgl_cfg.task_max_sleep_ms = 0;
     lvgl_port_init(&lvgl_cfg);
 
     // 7) Add display to LVGL
     const lvgl_port_display_cfg_t disp_cfg = {
         .io_handle = io_handle,
         .panel_handle = panel_handle,
-        .buffer_size = DISP_HEIGHT * 40,
-        .double_buffer = true,
+        .buffer_size = DISP_WIDTH * 100,
+        .double_buffer = false,
         .hres = DISP_WIDTH,
         .vres = DISP_HEIGHT,
         .monochrome = false,

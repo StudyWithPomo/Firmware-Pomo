@@ -29,7 +29,7 @@ static const char *TAG = "touch";
 #endif
 
 static esp_lcd_touch_handle_t s_touch = NULL;
-static lv_indev_t *s_lv_indev = NULL;
+lv_indev_t *s_lv_indev = NULL;
 
 static void touch_driver_read(lv_indev_t *indev, lv_indev_data_t *data)
 {
@@ -47,7 +47,33 @@ static void touch_driver_read(lv_indev_t *indev, lv_indev_data_t *data)
     }
 }
 
-lv_indev_t *touch_init_xpt2046(void)
+static uint16_t raw_x_min = 20;
+static uint16_t raw_x_max = 220;
+static uint16_t raw_y_min = 15;
+static uint16_t raw_y_max = 300;
+
+static void touch_calibration(
+    esp_lcd_touch_handle_t tp,
+    uint16_t *x,
+    uint16_t *y,
+    uint16_t *strength,
+    uint8_t *point_num,
+    uint8_t max_point_num
+){
+    if (*point_num == 0) return;
+    
+    // clamp raw values
+    if (*x < raw_x_min) *x = raw_x_min;
+    if (*x > raw_x_max) *x = raw_x_max;
+    if (*y < raw_y_min) *y = raw_y_min;
+    if (*y > raw_y_max) *y = raw_y_max;
+
+    // map raw -> LVGL coords
+    *x = (*x - raw_x_min) * DISP_HOR_RES / (raw_x_max - raw_x_min);
+    *y = (*y - raw_y_min) * DISP_VER_RES / (raw_y_max - raw_y_min);
+}
+
+esp_err_t touch_init_xpt2046(void)
 {
     esp_err_t ret;
 
@@ -63,7 +89,7 @@ lv_indev_t *touch_init_xpt2046(void)
     ret = spi_bus_initialize(TOUCH_SPI_HOST, &buscfg, SPI_DMA_CH_AUTO);
     if (ret != ESP_OK) {
         ESP_LOGE("XPT2046", "Failed to init SPI bus: %s", esp_err_to_name(ret));
-        return NULL;
+        return ret;
     }
 
     /* 2. Create SPI IO device for XPT2046 */
@@ -82,7 +108,7 @@ lv_indev_t *touch_init_xpt2046(void)
     ret = esp_lcd_new_panel_io_spi(TOUCH_SPI_HOST, &io_config, &tp_io_handle);
     if (ret != ESP_OK) {
         ESP_LOGE("XPT2046", "Failed to init panel IO: %s", esp_err_to_name(ret));
-        return NULL;
+        return ret;
     }
 
     /* 3. Create XPT2046 touch driver */
@@ -97,15 +123,16 @@ lv_indev_t *touch_init_xpt2046(void)
         },
         .flags = {
             .swap_xy = false,
-            .mirror_x = false,
+            .mirror_x = true,
             .mirror_y = false,
-        }
+        },
+        .process_coordinates = touch_calibration,
     };
 
     ret = esp_lcd_touch_new_spi_xpt2046(tp_io_handle, &touch_cfg, &s_touch);
     if (ret != ESP_OK) {
         ESP_LOGE("XPT2046", "Failed to init touch driver: %s", esp_err_to_name(ret));
-        return NULL;
+        return ret;
     }
 
     /* 4. Register in LVGL as input device */
@@ -113,5 +140,5 @@ lv_indev_t *touch_init_xpt2046(void)
     lv_indev_set_type(s_lv_indev, LV_INDEV_TYPE_POINTER);
     lv_indev_set_read_cb(s_lv_indev, touch_driver_read);
 
-    return s_lv_indev;
+    return ESP_OK;
 }
