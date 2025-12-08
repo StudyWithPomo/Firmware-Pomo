@@ -47,10 +47,10 @@ static void touch_driver_read(lv_indev_t *indev, lv_indev_data_t *data)
     }
 }
 
-static uint16_t raw_x_min = 20;
-static uint16_t raw_x_max = 220;
-static uint16_t raw_y_min = 15;
-static uint16_t raw_y_max = 300;
+static uint16_t raw_x_min = 350;
+static uint16_t raw_x_max = 3700;
+static uint16_t raw_y_min = 200;
+static uint16_t raw_y_max = 3800;
 
 static void touch_calibration(
     esp_lcd_touch_handle_t tp,
@@ -61,6 +61,8 @@ static void touch_calibration(
     uint8_t max_point_num
 ){
     if (*point_num == 0) return;
+
+    ESP_LOGI(TAG, "Raw touch data before calibration: x=%d, y=%d", *x, *y);
     
     // clamp raw values
     if (*x < raw_x_min) *x = raw_x_min;
@@ -71,6 +73,8 @@ static void touch_calibration(
     // map raw -> LVGL coords
     *x = (*x - raw_x_min) * DISP_HOR_RES / (raw_x_max - raw_x_min);
     *y = (*y - raw_y_min) * DISP_VER_RES / (raw_y_max - raw_y_min);
+
+    ESP_LOGI(TAG, "Calibrated touch data: x=%d, y=%d", *x, *y);
 }
 
 esp_err_t touch_init_xpt2046(void)

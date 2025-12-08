@@ -7,6 +7,8 @@
 #include "esp_lvgl_port.h"
 #include "driver/gpio.h"
 
+static const char *TAG = "display";
+
 esp_lcd_panel_handle_t panel_handle;
 static esp_lcd_panel_io_handle_t io_handle;
 static lv_display_t *display_handle;
@@ -14,14 +16,14 @@ static lv_display_t *display_handle;
 esp_err_t init_ili9341_with_lvgl(void)
 {
     esp_err_t ret;
-    // Pin configuration (adjust to your wiring)
+
     const int PIN_MOSI = 14;
     const int PIN_CLK = 27;
     const int PIN_CS = 13;
     const int PIN_DC = 12;
     const int PIN_RST = 2;
     const int PIN_BCKL = 26;
-    const int PIN_MISO = -1; // not used
+    const int PIN_MISO = -1;
 
     const int DISP_WIDTH = 240;
     const int DISP_HEIGHT = 320;
@@ -76,7 +78,7 @@ esp_err_t init_ili9341_with_lvgl(void)
     const lvgl_port_display_cfg_t disp_cfg = {
         .io_handle = io_handle,
         .panel_handle = panel_handle,
-        .buffer_size = DISP_WIDTH * 100,
+        .buffer_size = DISP_HEIGHT * 40,
         .double_buffer = false,
         .hres = DISP_WIDTH,
         .vres = DISP_HEIGHT,
