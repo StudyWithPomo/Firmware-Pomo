@@ -5,6 +5,10 @@ class Screen;
 class UIManager {
 public:
     UIManager() = default;
+    static UIManager& getInstance() {
+        static UIManager instance;
+        return instance;
+    }
 
     void setScreen(Screen* s);
     void render();

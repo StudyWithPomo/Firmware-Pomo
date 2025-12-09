@@ -1,32 +1,30 @@
 #include <ui/screen.hpp>
+#include <ui/ui_manager.hpp>
+#include "home_screen.hpp"
 #include "lock_screen.hpp"
 #include "lvgl.h"
 #include "font/lv_font.h"
 
+#include "status_bar.hpp"
+
+#include <system/system.hpp>
+
 void LockScreen::render() {
-    lv_obj_t *bg = lv_obj_create(lv_scr_act());
-    lv_obj_set_size(bg, lv_pct(100), lv_pct(100));
-    lv_obj_set_style_border_width(bg, 0, 0);
-    lv_obj_set_style_radius(bg, 0, 0);
-    lv_obj_set_style_bg_color(bg, lv_color_hex(0x0), 0);
+    const SystemAPI *system = SystemAPI::getInstance();
 
-    lv_obj_t *battery_icon = lv_label_create(lv_scr_act());
-    lv_label_set_text(battery_icon, LV_SYMBOL_BATTERY_FULL);
-    lv_obj_set_style_text_color(battery_icon, lv_color_hex(0xFFFFFF), 0);
-    lv_obj_align(battery_icon, LV_ALIGN_TOP_RIGHT, -10, 10);
+    render_status_bar(false);
 
-    lv_obj_t *signal_icon = lv_label_create(lv_scr_act());
-    lv_label_set_text(signal_icon, LV_SYMBOL_WIFI);
-    lv_obj_set_style_text_color(signal_icon, lv_color_hex(0xFFFFFF), 0);
-    lv_obj_align(signal_icon, LV_ALIGN_TOP_RIGHT, -40, 10);
+    auto date = system->getCurrentDate();
 
     lv_obj_t *date_label = lv_label_create(lv_scr_act());
-    lv_label_set_text(date_label, "Monday, June 24");
+    lv_label_set_text(date_label, date.c_str());
     lv_obj_set_style_text_color(date_label, lv_color_hex(0xFFFFFF), 0);
     lv_obj_align(date_label, LV_ALIGN_TOP_LEFT, 10, 40);
 
+    auto time = system->getCurrentTime();
+
     lv_obj_t *time_label = lv_label_create(lv_scr_act());
-    lv_label_set_text(time_label, "12:45 PM");
+    lv_label_set_text(time_label, time.c_str());
     lv_obj_set_style_text_color(time_label, lv_color_hex(0xFFFFFF), 0);
     lv_obj_align(time_label, LV_ALIGN_TOP_LEFT, 10, 60);
     lv_obj_set_style_text_font(time_label, &lv_font_montserrat_28, 0);
@@ -49,15 +47,6 @@ void LockScreen::render() {
 
     lv_obj_add_event_cb(unlock_slider, [](lv_event_t * e) {
         lv_obj_t *slider = (lv_obj_t *)lv_event_get_target(e);
-        if (lv_slider_get_value(slider) >= 100) {
-            // Unlock the screen
-            // For demonstration, we just reset the slider
-            lv_slider_set_value(slider, 0, LV_ANIM_ON);
-        }
-    }, LV_EVENT_VALUE_CHANGED, nullptr);
-
-    lv_obj_add_event_cb(unlock_slider, [](lv_event_t * e) {
-        lv_obj_t *slider = (lv_obj_t *)lv_event_get_target(e);
         // Snap back if released before reaching the end
         if (lv_slider_get_value(slider) < 100) {
             lv_slider_set_value(slider, 0, LV_ANIM_ON);
@@ -72,13 +61,25 @@ void LockScreen::render() {
     lv_obj_set_style_pad_hor(unlock_slider, 20, 0);
 
     lv_obj_set_style_bg_opa(unlock_slider, LV_OPA_TRANSP, LV_PART_INDICATOR);
+    lv_obj_set_style_bg_opa(unlock_slider, LV_OPA_TRANSP, LV_PART_KNOB);
 
-    lv_style_t knob_style;
-    lv_style_init(&knob_style);
-    lv_style_set_bg_color(&knob_style, lv_color_hex(0x888888));
-    lv_style_set_radius(&knob_style, 8);
-    lv_style_set_border_width(&knob_style, 0);
-    lv_style_set_pad_all(&knob_style, -5);
+    lv_obj_t *custom_knob = lv_label_create(unlock_slider);
+    lv_label_set_text(custom_knob, LV_SYMBOL_RIGHT);
+    lv_obj_set_style_text_color(custom_knob, lv_color_hex(0xFFFFFF), 0);
 
-    lv_obj_add_style(unlock_slider, &knob_style, LV_PART_KNOB);
+    lv_obj_add_event_cb(unlock_slider, [](lv_event_t * e) {
+        lv_obj_t *slider = (lv_obj_t *)lv_event_get_target(e);
+        lv_obj_t *custom_knob = (lv_obj_t *)lv_event_get_user_data(e);
+
+        if (lv_slider_get_value(slider) >= 100) {
+            lv_slider_set_value(slider, 0, LV_ANIM_ON);
+            UIManager::getInstance().setScreen(HomeScreen::getInstance());
+        }
+
+        lv_obj_set_pos(
+            custom_knob,
+            lv_slider_get_value(slider) * (lv_obj_get_width(slider) - lv_obj_get_width(custom_knob)) / 100, 
+            (lv_obj_get_height(slider) - lv_obj_get_height(custom_knob)) / 2
+        );
+    }, LV_EVENT_ALL, custom_knob);
 }

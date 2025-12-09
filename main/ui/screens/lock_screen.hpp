@@ -3,6 +3,9 @@
 
 class LockScreen : public Screen {
 public:
-    LockScreen(UIManager *ui) : Screen(ui) {}
+    static LockScreen *getInstance() {
+        static LockScreen instance;
+        return &instance;
+    }
     void render() override;
 };

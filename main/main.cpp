@@ -7,6 +7,8 @@
 #include "lvgl.h"
 #include "esp_lvgl_port.h"
 
+#include "system/system.hpp"
+
 #include "hal/display.h"
 #include "hal/touch.h"
 
@@ -49,11 +51,9 @@ extern "C" void app_main(void)
     // delay to ensure LVGL is ready
     vTaskDelay(pdMS_TO_TICKS(100));
 
-    // Set up the UI manager and lock screen
-    UIManager ui_manager = UIManager();
-    LockScreen lock_screen = LockScreen(&ui_manager);
+    UIManager ui_manager = UIManager::getInstance();
 
-    ui_manager.setScreen(&lock_screen);
+    ui_manager.setScreen(LockScreen::getInstance());
 
     ui_manager.render();        
 }
