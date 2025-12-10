@@ -3,6 +3,7 @@
 #include <ui/ui_root.hpp>
 #include <ui/wallpapers.h>
 #include <ui/fonts.h>
+#include <ui/assets.h>
 
 #include "lvgl.h"
 #include "esp_log.h"
@@ -21,7 +22,17 @@ void draw_app_icon(const AppIcon *app, lv_obj_t *parent, int x, int y, int icon_
     lv_obj_set_size(app_btn, icon_size, icon_size);
     lv_obj_set_style_bg_color(app_btn, app->color, 0);
     lv_obj_set_style_radius(app_btn, icon_radius, 0);
+    lv_obj_set_style_clip_corner(app_btn, true, 0);
+    lv_obj_add_flag(app_btn, LV_OBJ_FLAG_ADV_HITTEST);
     lv_obj_add_event_cb(app_btn, app->action, LV_EVENT_CLICKED, nullptr);
+
+    lv_obj_set_style_transform_width(app_btn, 0, LV_STATE_PRESSED);
+    lv_obj_set_style_transform_height(app_btn, 0, LV_STATE_PRESSED);
+
+    lv_obj_t *app_btn_bg = lv_img_create(app_btn);
+    lv_img_set_src(app_btn_bg, &app_overlay);
+    lv_obj_set_size(app_btn_bg, icon_size, icon_size);
+    lv_obj_center(app_btn_bg);
 
     lv_obj_t *app_icon_label = lv_label_create(app_btn);
     lv_label_set_text(app_icon_label, app->symbol);

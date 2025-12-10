@@ -12,6 +12,8 @@ idf_component_register(
     "ui/navigator.cpp"
     "ui/ui_root.cpp"
 
+    "ui/assets/app_overlay.c"
+
     "ui/fonts/ext_symbols_14.c"
     "ui/fonts/ext_symbols_28.c"
 
