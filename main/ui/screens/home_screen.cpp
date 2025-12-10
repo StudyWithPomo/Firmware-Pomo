@@ -1,123 +1,112 @@
+#include <ui/screens.hpp>
+#include <ui/app_state.hpp>
+
 #include "lvgl.h"
-#include "home_screen.hpp"
-#include "status_bar.hpp"
-#include <ui/ui_manager.hpp>
-#include "lock_screen.hpp"
+#include "esp_log.h"
 
-void HomeScreen::render() {
-    lv_obj_t *scr = lv_scr_act();
+struct AppIcon
+{
+    const char *label;
+    const char *symbol;
+    void (*action)(lv_event_t *e);
+    lv_color_t color = lv_palette_main(LV_PALETTE_BLUE);
+};
 
-    /* ===== Background (soft linen-like texture via gradients) ===== */
-    lv_obj_set_style_bg_color(scr, lv_color_hex(0x303030), 0);
-    lv_obj_set_style_bg_grad_color(scr, lv_color_hex(0x1A1A1A), 0);
-    lv_obj_set_style_bg_grad_dir(scr, LV_GRAD_DIR_VER, 0);
+void draw_app_icon(const AppIcon *app, lv_obj_t *parent, int x, int y, int icon_size, int icon_radius) {
 
-    /* ===== Status Bar reused from system renderer ===== */
-    render_status_bar(true);
+        lv_obj_t *app_btn = lv_btn_create(parent);
+        lv_obj_align(app_btn, LV_ALIGN_TOP_LEFT, x, y);
+        lv_obj_set_size(app_btn, icon_size, icon_size);
+        lv_obj_set_style_bg_color(app_btn, app->color, 0);
+        lv_obj_set_style_radius(app_btn, icon_radius, 0);
+        lv_obj_add_event_cb(app_btn, app->action, LV_EVENT_CLICKED, nullptr);
 
-    /* ===== App Grid Layout ===== */
-    const int ICON_SIZE = 50;
-    const int ICON_PAD = 15;
-    const int LABEL_PAD_TOP = 5;
+        lv_obj_t *app_icon_label = lv_label_create(app_btn);
+        lv_label_set_text(app_icon_label, app->symbol);
+        lv_obj_set_style_text_font(app_icon_label, &lv_font_montserrat_28, 0);
+        lv_obj_center(app_icon_label);
 
-    struct AppIcon {
-        const char* name;
-        const char* symbol;
-        const int color;
-        void (*onClick)() = nullptr;
+        lv_obj_t *app_text = lv_label_create(parent);
+        lv_label_set_text(app_text, app->label);
+        lv_obj_set_style_text_align(app_text, LV_TEXT_ALIGN_CENTER, 0);
+        lv_obj_set_style_text_font(app_text, &lv_font_montserrat_12, 0);
+        lv_obj_set_style_text_color(app_text, lv_color_white(), 0);
+        lv_obj_align_to(app_text, app_btn, LV_ALIGN_OUT_BOTTOM_MID, 0, 5);
+}
+
+void screen_home(lv_obj_t *parent)
+{
+    lv_obj_t *bg = lv_obj_create(parent);
+    lv_obj_set_size(bg, lv_pct(100), lv_pct(100));
+    lv_obj_set_style_bg_color(bg, lv_color_hex(0x000000), 0);
+    lv_obj_set_style_pad_all(bg, 0, 0);
+    lv_obj_set_style_border_width(bg, 0, 0);
+    lv_obj_set_style_radius(bg, 0, 0);
+
+    lv_obj_t *dock = lv_obj_create(parent);
+    lv_obj_set_size(dock, lv_pct(100), 40);
+    lv_obj_align(dock, LV_ALIGN_BOTTOM_MID, 0, 0);
+    lv_obj_set_style_border_width(dock, 0, 0);
+    lv_obj_set_style_radius(dock, 0, 0);
+    lv_obj_set_style_bg_color(dock, lv_color_hex(0x333333), 0);
+    lv_obj_set_style_bg_grad_color(dock, lv_color_hex(0x111111), 0);
+    lv_obj_set_style_bg_grad_dir(dock, LV_GRAD_DIR_VER, 0);
+
+    const AppIcon dock_apps[] = {
+        {"Settings", LV_SYMBOL_SETTINGS, [](lv_event_t *e) {}, lv_palette_main(LV_PALETTE_ORANGE)},
+        {"Phone", LV_SYMBOL_CALL, [](lv_event_t *e) {}, lv_palette_main(LV_PALETTE_GREEN)},
+        {"Power", LV_SYMBOL_POWER, [](lv_event_t *e)
+         { AppState::instance().lockPhone(); }, lv_palette_main(LV_PALETTE_RED)},
     };
 
-    const AppIcon* apps_data = new AppIcon[4] {
-        {"Photos", LV_SYMBOL_IMAGE, 0xE74C3C},
-        {"Files", LV_SYMBOL_DRIVE, 0x27AE60},
-        {"Clock", LV_SYMBOL_BELL, 0xF1C40F},
-        {"Music", LV_SYMBOL_AUDIO, 0x9B59B6},
+    const AppIcon page_apps[] = {
+        {"SMS", LV_SYMBOL_LIST, [](lv_event_t *e) {}, lv_palette_main(LV_PALETTE_BLUE)},
+        {"Gallery", LV_SYMBOL_IMAGE, [](lv_event_t *e) {}, lv_palette_main(LV_PALETTE_PINK)},
+        {"Music", LV_SYMBOL_AUDIO, [](lv_event_t *e) {}, lv_palette_main(LV_PALETTE_PURPLE)},
+        {"Files", LV_SYMBOL_DIRECTORY, [](lv_event_t *e) {}, lv_palette_main(LV_PALETTE_BROWN)},
     };
 
-    const AppIcon *dock_apps = new AppIcon[3] {
-        {"Phone", LV_SYMBOL_CALL, 0xE67E22},
-        {"Settings", LV_SYMBOL_SETTINGS, 0x3498DB},
-        {"Logout", LV_SYMBOL_POWER, 0x1ABC9C, []() {
-            UIManager::getInstance().setScreen(LockScreen::getInstance());
-        }},
-    };
+    constexpr int icon_gap = 15;
 
-    for (int i = 0; i < 4; i++) {
+    const int s_width = lv_obj_get_width(parent);
+    const int icon_size = (s_width - icon_gap * 4) / 3;
+    const int icon_radius = icon_size / 5;
 
-        int row = i / 3;
-        int col = i % 3;
+    constexpr int dock_count = sizeof(dock_apps) / sizeof(AppIcon);
+    constexpr int page_count = sizeof(page_apps) / sizeof(AppIcon);
 
-        int x = 20 + col * (ICON_SIZE + ICON_PAD + 10);
-        int y = 40 + row * (ICON_SIZE + 35);
+    lv_obj_t *page_apps_container = lv_obj_create(parent);
+    lv_obj_set_size(page_apps_container, lv_pct(100), lv_pct(100));
+    lv_obj_align(page_apps_container, LV_ALIGN_TOP_MID, 0, 0);
+    lv_obj_set_style_bg_opa(page_apps_container, LV_OPA_TRANSP, 0);
+    lv_obj_set_style_border_width(page_apps_container, 0, 0);
+    lv_obj_set_style_pad_all(page_apps_container, icon_gap, 0);
+    lv_obj_set_style_pad_bottom(page_apps_container, 85 + icon_gap, 0); // Leave space for dock
 
-        /* Icon container (rounded glossy box) */
-        lv_obj_t *icon = lv_button_create(scr);
-        lv_obj_set_size(icon, ICON_SIZE, ICON_SIZE);
-        lv_obj_set_pos(icon, x, y);
-        lv_obj_set_style_radius(icon, 15, 0);
-        lv_obj_set_style_border_width(icon, 0, 0);
-        lv_obj_set_style_bg_color(icon, lv_color_hex(apps_data[i].color), 0);
-        lv_obj_set_scroll_dir(icon, LV_DIR_NONE);
+    for (int i = 0; i < page_count; ++i)
+    {
+        const AppIcon &app = page_apps[i];
 
-        /* Click event handler */
-        if (apps_data[i].onClick != nullptr) {
-            lv_obj_add_event_cb(icon, [](lv_event_t * e) {
-                AppIcon *app = static_cast<AppIcon*>(lv_event_get_user_data(e));
-                if (app->onClick) {
-                    app->onClick();
-                }
-            }, LV_EVENT_CLICKED, (void*)&apps_data[i]);
-        }
+        const int x = (i % 3) * (icon_size + icon_gap);
+        const int y = (i / 3) * (icon_size + 15 + icon_gap);
 
-        /* Add an LVGL symbol as placeholder emoji/icon */
-        lv_obj_t *symbol = lv_label_create(icon);
-        lv_label_set_text(symbol, apps_data[i].symbol);
-        lv_obj_set_style_text_font(symbol, &lv_font_montserrat_28, 0);
-        lv_obj_center(symbol);
-
-        /* Icon label */
-        lv_obj_t *label = lv_label_create(scr);
-        lv_label_set_text(label, apps_data[i].name);
-        lv_obj_set_style_text_color(label, lv_color_hex(0xFFFFFF), 0);
-        lv_obj_align_to(label, icon, LV_ALIGN_OUT_BOTTOM_MID, 0, LABEL_PAD_TOP);
+        draw_app_icon(&app, page_apps_container, x, y,  icon_size, icon_radius);
     }
 
-    /* ===== Dock at the bottom ===== */
-    lv_obj_t *dock_bg = lv_obj_create(scr);
-    lv_obj_set_size(dock_bg, lv_pct(100), 70);
-    lv_obj_align(dock_bg, LV_ALIGN_BOTTOM_MID, 0, 0);
-    lv_obj_set_style_bg_color(dock_bg, lv_color_hex(0x202020), 0);
-    lv_obj_set_style_border_width(dock_bg, 0, 0);
-    lv_obj_set_style_radius(dock_bg, 0, 0);
-    lv_obj_set_style_bg_opa(dock_bg, LV_OPA_90, 0);
-    lv_obj_set_scroll_dir(dock_bg, LV_DIR_NONE);
-    for (int i = 0; i < 3; i++) {
-        int x = 10 + i * (ICON_SIZE + ICON_PAD + 10);
+    lv_obj_t *dock_apps_container = lv_obj_create(parent);
+    lv_obj_set_size(dock_apps_container, lv_pct(100), 85);
+    lv_obj_align(dock_apps_container, LV_ALIGN_BOTTOM_MID, 0, -5);
+    lv_obj_set_style_bg_opa(dock_apps_container, LV_OPA_TRANSP, 0);
+    lv_obj_set_style_border_width(dock_apps_container, 0, 0);
+    lv_obj_set_style_pad_hor(dock_apps_container, icon_gap, 0);
+    lv_obj_set_style_pad_ver(dock_apps_container, 0, 0);
 
-        /* Dock icon container */
-        lv_obj_t *icon = lv_button_create(dock_bg);
-        lv_obj_set_size(icon, ICON_SIZE, ICON_SIZE);
-        lv_obj_align(icon, LV_ALIGN_LEFT_MID, x, 0);
-        lv_obj_set_pos(icon, x, 0);
-        lv_obj_set_style_radius(icon, 15, 0);
-        lv_obj_set_style_border_width(icon, 0, 0);
-        lv_obj_set_style_bg_color(icon, lv_color_hex(dock_apps[i].color), 0);
-        lv_obj_set_scroll_dir(icon, LV_DIR_NONE);
+    for (int i = 0; i < dock_count; ++i)
+    {
+        const AppIcon &app = dock_apps[i];
 
-        /* Click event handler */
-        if (dock_apps[i].onClick != nullptr) {
-            lv_obj_add_event_cb(icon, [](lv_event_t * e) {
-                AppIcon *app = static_cast<AppIcon*>(lv_event_get_user_data(e));
-                if (app->onClick) {
-                    app->onClick();
-                }
-            }, LV_EVENT_CLICKED, (void*)&dock_apps[i]);
-        }
+        const int x = (i % dock_count) * (icon_size + icon_gap);
 
-        /* Add an LVGL symbol as placeholder emoji/icon */
-        lv_obj_t *symbol = lv_label_create(icon);
-        lv_label_set_text(symbol, dock_apps[i].symbol);
-        lv_obj_set_style_text_font(symbol, &lv_font_montserrat_28, 0);
-        lv_obj_center(symbol);
+        draw_app_icon(&app, dock_apps_container, x, 5, icon_size, icon_radius);
     }
 }

@@ -3,12 +3,8 @@
 #include <string>
 #include <stdexcept>
 
-static SystemAPI *instance;
-
-const SystemAPI *SystemAPI::getInstance() {
-    if (!instance) {
-        instance = new SystemAPI();
-    }
+SystemAPI &SystemAPI::instance() {
+    static SystemAPI instance;
     return instance;
 }
 

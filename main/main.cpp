@@ -12,8 +12,8 @@
 #include "hal/display.h"
 #include "hal/touch.h"
 
-#include "ui/ui_manager.hpp"
-#include "ui/screens/lock_screen.hpp"
+#include "ui/ui_root.hpp"
+#include "ui/navigator.hpp"
 
 #define DISP_WIDTH 240
 #define DISP_HEIGHT 320
@@ -50,10 +50,7 @@ extern "C" void app_main(void)
 
     // delay to ensure LVGL is ready
     vTaskDelay(pdMS_TO_TICKS(100));
-
-    UIManager ui_manager = UIManager::getInstance();
-
-    ui_manager.setScreen(LockScreen::getInstance());
-
-    ui_manager.render();        
+    
+    ui_root_init();
+    Navigator::instance().navigate(ScreenID::LOCK);
 }

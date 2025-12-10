@@ -1,35 +1,40 @@
-#include <ui/screen.hpp>
-#include <ui/ui_manager.hpp>
-#include "home_screen.hpp"
-#include "lock_screen.hpp"
 #include "lvgl.h"
 #include "font/lv_font.h"
 
-#include "status_bar.hpp"
+#include <ui/screens.hpp>
+#include <ui/app_state.hpp>
+#include <ui/ui_root.hpp>
 
 #include <system/system.hpp>
 
-void LockScreen::render() {
-    const SystemAPI *system = SystemAPI::getInstance();
+void screen_lock(lv_obj_t* parent) {
+    SystemAPI system = SystemAPI::instance();
 
-    render_status_bar(false);
+    ui_toggle_time_display(false);
 
-    auto date = system->getCurrentDate();
+    lv_obj_t *bg = lv_obj_create(parent);
+    lv_obj_set_size(bg, lv_pct(100), lv_pct(100));
+    lv_obj_set_style_bg_color(bg, lv_color_hex(0x000000), 0);
+    lv_obj_set_style_pad_all(bg, 0, 0);
+    lv_obj_set_style_border_width(bg, 0, 0);
+    lv_obj_set_style_radius(bg, 0, 0);
 
-    lv_obj_t *date_label = lv_label_create(lv_scr_act());
+    auto date = system.getCurrentDate();
+
+    lv_obj_t *date_label = lv_label_create(parent);
     lv_label_set_text(date_label, date.c_str());
     lv_obj_set_style_text_color(date_label, lv_color_hex(0xFFFFFF), 0);
     lv_obj_align(date_label, LV_ALIGN_TOP_LEFT, 10, 40);
 
-    auto time = system->getCurrentTime();
+    auto time = system.getCurrentTime();
 
-    lv_obj_t *time_label = lv_label_create(lv_scr_act());
+    lv_obj_t *time_label = lv_label_create(parent);
     lv_label_set_text(time_label, time.c_str());
     lv_obj_set_style_text_color(time_label, lv_color_hex(0xFFFFFF), 0);
     lv_obj_align(time_label, LV_ALIGN_TOP_LEFT, 10, 60);
     lv_obj_set_style_text_font(time_label, &lv_font_montserrat_28, 0);
     
-    lv_obj_t *bottom_bar = lv_obj_create(lv_scr_act());
+    lv_obj_t *bottom_bar = lv_obj_create(parent);
     lv_obj_set_size(bottom_bar, lv_pct(100), 80);
     lv_obj_align(bottom_bar, LV_ALIGN_BOTTOM_MID, 0, 0);
     lv_obj_set_style_border_width(bottom_bar, 0, 0);
@@ -71,15 +76,15 @@ void LockScreen::render() {
         lv_obj_t *slider = (lv_obj_t *)lv_event_get_target(e);
         lv_obj_t *custom_knob = (lv_obj_t *)lv_event_get_user_data(e);
 
-        if (lv_slider_get_value(slider) >= 100) {
-            lv_slider_set_value(slider, 0, LV_ANIM_ON);
-            UIManager::getInstance().setScreen(HomeScreen::getInstance());
-        }
-
         lv_obj_set_pos(
             custom_knob,
             lv_slider_get_value(slider) * (lv_obj_get_width(slider) - lv_obj_get_width(custom_knob)) / 100, 
             (lv_obj_get_height(slider) - lv_obj_get_height(custom_knob)) / 2
         );
+
+        if (lv_slider_get_value(slider) >= 100) {
+            lv_slider_set_value(slider, 0, LV_ANIM_ON);
+            AppState::instance().unlockPhone();
+        }
     }, LV_EVENT_ALL, custom_knob);
 }

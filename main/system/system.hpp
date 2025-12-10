@@ -4,7 +4,7 @@
 
 class SystemAPI {
 public:
-    static const SystemAPI *getInstance();
+    static SystemAPI &instance();
 
     // Battery status and percent
     struct BatteryStatus {
