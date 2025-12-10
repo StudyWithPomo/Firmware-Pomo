@@ -19,17 +19,30 @@ void screen_lock(lv_obj_t* parent) {
     lv_obj_set_style_border_width(bg, 0, 0);
     lv_obj_set_style_radius(bg, 0, 0);
 
-    auto date = system.getCurrentDate();
-
     lv_obj_t *date_label = lv_label_create(parent);
-    lv_label_set_text(date_label, date.c_str());
+    lv_subject_add_observer_obj(
+        &AppState::instance().date_subject, 
+        [](lv_observer_t * observer, lv_subject_t * subject){
+            lv_obj_t *label = lv_observer_get_target_obj(observer);
+            lv_label_set_text(label, lv_subject_get_string(subject));
+        },
+        date_label,
+        NULL
+    );
+    
     lv_obj_set_style_text_color(date_label, lv_color_hex(0xFFFFFF), 0);
     lv_obj_align(date_label, LV_ALIGN_TOP_LEFT, 10, 40);
 
-    auto time = system.getCurrentTime();
-
     lv_obj_t *time_label = lv_label_create(parent);
-    lv_label_set_text(time_label, time.c_str());
+    lv_subject_add_observer_obj(
+        &AppState::instance().time_subject, 
+        [](lv_observer_t * observer, lv_subject_t * subject){
+            lv_obj_t *label = lv_observer_get_target_obj(observer);
+            lv_label_set_text(label, lv_subject_get_string(subject));
+        },
+        time_label,
+        NULL
+    );
     lv_obj_set_style_text_color(time_label, lv_color_hex(0xFFFFFF), 0);
     lv_obj_align(time_label, LV_ALIGN_TOP_LEFT, 10, 60);
     lv_obj_set_style_text_font(time_label, &lv_font_montserrat_28, 0);

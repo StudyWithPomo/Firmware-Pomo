@@ -12,6 +12,7 @@
 #include "hal/display.h"
 #include "hal/touch.h"
 
+#include "ui/app_state.hpp"
 #include "ui/ui_root.hpp"
 #include "ui/navigator.hpp"
 
@@ -53,4 +54,6 @@ extern "C" void app_main(void)
     
     ui_root_init();
     Navigator::instance().navigate(ScreenID::LOCK);
+
+    lv_timer_create([](lv_timer_t* t){ AppState::instance().update(); }, 1000, nullptr);
 }

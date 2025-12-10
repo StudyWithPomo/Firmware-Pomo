@@ -13,25 +13,24 @@ struct AppIcon
 };
 
 void draw_app_icon(const AppIcon *app, lv_obj_t *parent, int x, int y, int icon_size, int icon_radius) {
+    lv_obj_t *app_btn = lv_btn_create(parent);
+    lv_obj_align(app_btn, LV_ALIGN_TOP_LEFT, x, y);
+    lv_obj_set_size(app_btn, icon_size, icon_size);
+    lv_obj_set_style_bg_color(app_btn, app->color, 0);
+    lv_obj_set_style_radius(app_btn, icon_radius, 0);
+    lv_obj_add_event_cb(app_btn, app->action, LV_EVENT_CLICKED, nullptr);
 
-        lv_obj_t *app_btn = lv_btn_create(parent);
-        lv_obj_align(app_btn, LV_ALIGN_TOP_LEFT, x, y);
-        lv_obj_set_size(app_btn, icon_size, icon_size);
-        lv_obj_set_style_bg_color(app_btn, app->color, 0);
-        lv_obj_set_style_radius(app_btn, icon_radius, 0);
-        lv_obj_add_event_cb(app_btn, app->action, LV_EVENT_CLICKED, nullptr);
+    lv_obj_t *app_icon_label = lv_label_create(app_btn);
+    lv_label_set_text(app_icon_label, app->symbol);
+    lv_obj_set_style_text_font(app_icon_label, &lv_font_montserrat_28, 0);
+    lv_obj_center(app_icon_label);
 
-        lv_obj_t *app_icon_label = lv_label_create(app_btn);
-        lv_label_set_text(app_icon_label, app->symbol);
-        lv_obj_set_style_text_font(app_icon_label, &lv_font_montserrat_28, 0);
-        lv_obj_center(app_icon_label);
-
-        lv_obj_t *app_text = lv_label_create(parent);
-        lv_label_set_text(app_text, app->label);
-        lv_obj_set_style_text_align(app_text, LV_TEXT_ALIGN_CENTER, 0);
-        lv_obj_set_style_text_font(app_text, &lv_font_montserrat_12, 0);
-        lv_obj_set_style_text_color(app_text, lv_color_white(), 0);
-        lv_obj_align_to(app_text, app_btn, LV_ALIGN_OUT_BOTTOM_MID, 0, 5);
+    lv_obj_t *app_text = lv_label_create(parent);
+    lv_label_set_text(app_text, app->label);
+    lv_obj_set_style_text_align(app_text, LV_TEXT_ALIGN_CENTER, 0);
+    lv_obj_set_style_text_font(app_text, &lv_font_montserrat_12, 0);
+    lv_obj_set_style_text_color(app_text, lv_color_white(), 0);
+    lv_obj_align_to(app_text, app_btn, LV_ALIGN_OUT_BOTTOM_MID, 0, 5);
 }
 
 void screen_home(lv_obj_t *parent)

@@ -1,4 +1,5 @@
 #include <system/system.hpp>
+#include <ui/app_state.hpp>
 
 #include "ui_root.hpp"
 #include "lvgl.h"
@@ -44,6 +45,15 @@ void ui_root_init()
         std::string time = system.getCurrentTime();
         lv_obj_t* time_label = ui_create_status_label(status_bar, time.c_str());
         lv_obj_set_flex_grow(time_label, 1);
+        lv_subject_add_observer_obj(
+            &AppState::instance().time_subject, 
+            [](lv_observer_t * observer, lv_subject_t * subject){
+                lv_obj_t *label = lv_observer_get_target_obj(observer);
+                lv_label_set_text(label, lv_subject_get_string(subject));
+            },
+            time_label,
+            NULL
+        );
     } else {
         lv_obj_t* spacer = lv_obj_create(status_bar);
         lv_obj_set_flex_grow(spacer, 1);
@@ -62,9 +72,20 @@ void ui_root_init()
     }
 
     SystemAPI::BatteryStatus battery = system.getBatteryStatus();
-    char battery_fmt[8];
+    char battery_fmt[5];
     snprintf(battery_fmt, sizeof(battery_fmt), "%d%%", battery.percent);
     lv_obj_t* battery_label = ui_create_status_label(status_bar, battery_fmt);
+    lv_subject_add_observer_obj(
+        &AppState::instance().battery_subject, 
+        [](lv_observer_t * observer, lv_subject_t * subject){
+            lv_obj_t *label = lv_observer_get_target_obj(observer);
+            char battery_fmt[5];
+            snprintf(battery_fmt, sizeof(battery_fmt), "%d%%", static_cast<int>(lv_subject_get_int(subject)));
+            lv_label_set_text(label, battery_fmt);
+        },
+        battery_label,
+        NULL
+    );
 
     content_area = lv_obj_create(root);
     lv_obj_set_width(content_area, LV_PCT(100));
