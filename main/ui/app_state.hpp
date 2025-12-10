@@ -10,6 +10,8 @@ public:
     lv_subject_t date_subject;
     lv_subject_t battery_subject;
 
+    lv_subject_t cell_subject;
+
     void unlockPhone();
     void lockPhone();
 

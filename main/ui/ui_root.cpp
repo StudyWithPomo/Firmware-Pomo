@@ -1,5 +1,6 @@
 #include <system/system.hpp>
 #include <ui/app_state.hpp>
+#include <ui/fonts.h>
 
 #include "ui_root.hpp"
 #include "lvgl.h"
@@ -46,6 +47,30 @@ const char *get_battery_symbol(int percent)
     }
 }
 
+const char *get_signal_symbol(int rssi)
+{
+    if (rssi >= -30)
+    {
+        return UI_SYMBOL_SIGNAL;
+    }
+    else if (rssi >= -67)
+    {
+        return UI_SYMBOL_SIGNAL_3;
+    }
+    else if (rssi >= -70)
+    {
+        return UI_SYMBOL_SIGNAL_2;
+    }
+    else if (rssi >= -80)
+    {
+        return UI_SYMBOL_SIGNAL_1;
+    }
+    else
+    {
+        return "";
+    }
+}
+
 void ui_root_init()
 {
     SystemAPI system = SystemAPI::instance();
@@ -75,25 +100,56 @@ void ui_root_init()
     lv_obj_set_style_pad_ver(status_bar, 0, 0);
     lv_obj_set_style_pad_hor(status_bar, 5, 0);
 
-    SystemAPI::CellularStatus cell_status = system.getCellularStatus();
     lv_obj_t *cell_label = ui_create_status_label(status_bar, "...");
-    if (cell_status.simCardPresent) {
-        lv_label_set_text(cell_label, cell_status.carrierName);
-    } else {
-        lv_label_set_text(cell_label, "No SIM");
-    }
+    lv_obj_set_style_text_font(cell_label, &ext_symbols_14, 0);
+    lv_subject_add_observer_obj(
+        &AppState::instance().cell_subject,
+        [](lv_observer_t *observer, lv_subject_t *subject)
+        {
+            lv_obj_t *label = lv_observer_get_target_obj(observer);
+            SystemAPI::CellularStatus *status = (SystemAPI::CellularStatus *)lv_subject_get_pointer(subject);
 
-    SystemAPI::WiFiStatus wifi_status = system.getWiFiStatus();
-    if (wifi_status.isConnected)
-    {
-        lv_obj_t *wifi_label = ui_create_status_label(status_bar, LV_SYMBOL_WIFI);
-    }
+            if (status->simCardPresent)
+            {
+                if (status->signalStrength == 0)
+                {
+                    lv_label_set_text(label, "No Signal");
+                }
+                else
+                {
+                    lv_label_set_text_fmt(label, "%s %s", get_signal_symbol(status->signalStrength), status->carrierName);
+                }
+            }
+            else
+            {
+                lv_label_set_text(label, "No SIM");
+            }
+        },
+        cell_label,
+        NULL);
+
+    lv_obj_t *spacer = lv_obj_create(status_bar);
+    lv_obj_set_flex_grow(spacer, 1);
+    lv_obj_set_style_bg_opa(spacer, LV_OPA_TRANSP, 0);
+    lv_obj_set_style_border_width(spacer, 0, 0);
+
+    lv_obj_t *battery_label = ui_create_status_label(status_bar, "");
+    lv_subject_add_observer_obj(
+        &AppState::instance().battery_subject,
+        [](lv_observer_t *observer, lv_subject_t *subject)
+        {
+            lv_obj_t *label = lv_observer_get_target_obj(observer);
+            int percent = lv_subject_get_int(subject);
+            lv_label_set_text_fmt(label, "%s %d%%", get_battery_symbol(percent), percent);
+        },
+        battery_label,
+        NULL);
 
     std::string time = system.getCurrentTime();
     lv_obj_t *time_label = ui_create_status_label(status_bar, time.c_str());
-    lv_obj_set_flex_grow(time_label, 1);
-    lv_obj_set_flex_align(time_label, LV_FLEX_ALIGN_CENTER, LV_FLEX_ALIGN_CENTER, LV_FLEX_ALIGN_CENTER);
+    lv_obj_add_flag(time_label, LV_OBJ_FLAG_IGNORE_LAYOUT);
     lv_obj_set_style_text_align(time_label, LV_TEXT_ALIGN_CENTER, 0);
+    lv_obj_align(time_label, LV_ALIGN_CENTER, 0, 0);
     lv_subject_add_observer_obj(
         &AppState::instance().time_subject,
         [](lv_observer_t *observer, lv_subject_t *subject)
@@ -131,23 +187,6 @@ void ui_root_init()
     {
         lv_obj_add_flag(time_label, LV_OBJ_FLAG_HIDDEN);
     }
-
-    SystemAPI::BatteryStatus battery = system.getBatteryStatus();
-    char battery_fmt[8];
-    snprintf(battery_fmt, sizeof(battery_fmt), "%s %d%%", get_battery_symbol(battery.percent), static_cast<int>(battery.percent));
-    lv_obj_t *battery_label = ui_create_status_label(status_bar, battery_fmt);
-    lv_subject_add_observer_obj(
-        &AppState::instance().battery_subject,
-        [](lv_observer_t *observer, lv_subject_t *subject)
-        {
-            lv_obj_t *label = lv_observer_get_target_obj(observer);
-            char battery_fmt[5];
-            int percent = lv_subject_get_int(subject);
-            snprintf(battery_fmt, sizeof(battery_fmt), "%s %d%%", get_battery_symbol(percent), percent);
-            lv_label_set_text(label, battery_fmt);
-        },
-        battery_label,
-        NULL);
 }
 
 lv_obj_t *ui_get_content_area()

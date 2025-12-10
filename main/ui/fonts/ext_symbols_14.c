@@ -1,7 +1,7 @@
 /*******************************************************************************
  * Size: 14 px
  * Bpp: 4
- * Opts: --bpp 4 --size 14 --no-compress --stride 1 --align 1 --font pro-fa-solid-900-5.10.1.woff --range 63120-63124 --format lvgl -o ext_symbols_14.c
+ * Opts: --bpp 4 --size 14 --no-compress --stride 1 --align 1 --font pro-fa-solid-900-5.10.1.woff --range 63120-63123 --format lvgl -o ext_symbols_14.c
  ******************************************************************************/
 
 #ifdef __has_include

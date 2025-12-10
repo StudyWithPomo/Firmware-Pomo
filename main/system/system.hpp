@@ -26,7 +26,7 @@ public:
     // Cellular status
     struct CellularStatus {
         bool simCardPresent;
-        char carrierName[32];
+        char carrierName[16];
         int signalStrength; // in dBm
     };
 
@@ -48,3 +48,5 @@ public:
     // Get current date as string
     std::string getCurrentDate() const;
 };
+
+bool operator!=(const SystemAPI::CellularStatus& a, const SystemAPI::CellularStatus& b);

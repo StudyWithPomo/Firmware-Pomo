@@ -1,5 +1,6 @@
 #include "system.hpp"
 #include <ctime>
+#include <cstring>
 #include <string>
 #include <stdexcept>
 
@@ -25,10 +26,11 @@ SystemAPI::BluetoothStatus SystemAPI::getBluetoothStatus() const {
 
 SystemAPI::CellularStatus SystemAPI::getCellularStatus() const {
     // Placeholder implementation
-    CellularStatus status;
-    status.simCardPresent = true;
-    std::snprintf(status.carrierName, sizeof(status.carrierName), "Cube");
-    status.signalStrength = -70;
+    CellularStatus status{
+        true,
+        "Cube",
+        -30
+    };
     return status;
 }
 
@@ -44,4 +46,10 @@ std::string SystemAPI::getCurrentDate() const {
     char buf[30];
     std::strftime(buf, sizeof(buf), "%A, %B %d", std::localtime(&now));
     return std::string(buf);
+}
+
+bool operator!=(const SystemAPI::CellularStatus& a, const SystemAPI::CellularStatus& b) {
+    return (a.simCardPresent != b.simCardPresent) ||
+           strcmp(a.carrierName, b.carrierName) ||
+           (a.signalStrength != b.signalStrength);
 }
