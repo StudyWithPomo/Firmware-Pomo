@@ -1,6 +1,8 @@
 #include <ui/screens.hpp>
 #include <ui/app_state.hpp>
 #include <ui/ui_root.hpp>
+#include <ui/wallpapers.h>
+#include <ui/fonts.h>
 
 #include "lvgl.h"
 #include "esp_log.h"
@@ -23,46 +25,70 @@ void draw_app_icon(const AppIcon *app, lv_obj_t *parent, int x, int y, int icon_
 
     lv_obj_t *app_icon_label = lv_label_create(app_btn);
     lv_label_set_text(app_icon_label, app->symbol);
-    lv_obj_set_style_text_font(app_icon_label, &lv_font_montserrat_28, 0);
+    lv_obj_set_style_text_font(app_icon_label, &ext_symbols_28, 0);
     lv_obj_center(app_icon_label);
 
+    lv_obj_t *text_shadow2 = lv_label_create(parent);
+    lv_obj_t *text_shadow3 = lv_label_create(parent);
+    lv_obj_t *text_shadow4 = lv_label_create(parent);
     lv_obj_t *app_text = lv_label_create(parent);
+
+    lv_label_set_text(text_shadow2, app->label);
+    lv_label_set_text(text_shadow3, app->label);
+    lv_label_set_text(text_shadow4, app->label);
     lv_label_set_text(app_text, app->label);
+
+    static lv_style_t style_shadow;
+    lv_style_init(&style_shadow);
+
+    lv_style_set_text_align(&style_shadow, LV_TEXT_ALIGN_CENTER);
+    lv_style_set_text_font(&style_shadow, &lv_font_montserrat_12);
+    lv_style_set_text_color(&style_shadow, lv_color_black());
+    lv_style_set_text_opa(&style_shadow, LV_OPA_40);
+
+    lv_obj_add_style(text_shadow2, &style_shadow, 0);
+    lv_obj_add_style(text_shadow3, &style_shadow, 0);
+    lv_obj_add_style(text_shadow4, &style_shadow, 0);
+
     lv_obj_set_style_text_align(app_text, LV_TEXT_ALIGN_CENTER, 0);
     lv_obj_set_style_text_font(app_text, &lv_font_montserrat_12, 0);
     lv_obj_set_style_text_color(app_text, lv_color_white(), 0);
-    lv_obj_align_to(app_text, app_btn, LV_ALIGN_OUT_BOTTOM_MID, 0, 5);
+
+    lv_obj_align_to(app_text, app_btn, LV_ALIGN_OUT_BOTTOM_MID, 0, 2);
+    lv_obj_align_to(text_shadow2, app_text, LV_ALIGN_CENTER, -1, 1);
+    lv_obj_align_to(text_shadow3, app_text, LV_ALIGN_CENTER, 1, 1);
+    lv_obj_align_to(text_shadow4, app_text, LV_ALIGN_CENTER, 0, -1);
 }
 
 void screen_home(lv_obj_t *parent)
 {
     ui_toggle_time_display(true);
 
-    lv_obj_t *bg = lv_obj_create(parent);
+    lv_obj_t *bg = lv_img_create(parent);
     lv_obj_set_size(bg, lv_pct(100), lv_pct(100));
-    lv_obj_set_style_bg_color(bg, lv_color_hex(0x000000), 0);
-    lv_obj_set_style_pad_all(bg, 0, 0);
+    lv_img_set_src(bg, &blue);
     lv_obj_set_style_border_width(bg, 0, 0);
     lv_obj_set_style_radius(bg, 0, 0);
 
     lv_obj_t *dock = lv_obj_create(parent);
-    lv_obj_set_size(dock, lv_pct(100), 40);
+    lv_obj_set_size(dock, lv_pct(100), 45);
     lv_obj_align(dock, LV_ALIGN_BOTTOM_MID, 0, 0);
     lv_obj_set_style_border_width(dock, 0, 0);
     lv_obj_set_style_radius(dock, 0, 0);
     lv_obj_set_style_bg_color(dock, lv_color_hex(0x333333), 0);
-    lv_obj_set_style_bg_grad_color(dock, lv_color_hex(0x111111), 0);
+    lv_obj_set_style_bg_opa(dock, LV_OPA_70, 0);
+    lv_obj_set_style_bg_grad_color(dock, lv_color_hex(0x000000), 0);
     lv_obj_set_style_bg_grad_dir(dock, LV_GRAD_DIR_VER, 0);
 
     const AppIcon dock_apps[] = {
         {"Settings", LV_SYMBOL_SETTINGS, [](lv_event_t *e) {}, lv_palette_main(LV_PALETTE_ORANGE)},
         {"Phone", LV_SYMBOL_CALL, [](lv_event_t *e) {}, lv_palette_main(LV_PALETTE_GREEN)},
-        {"Power", LV_SYMBOL_POWER, [](lv_event_t *e)
+        {"Power", UI_SYMBOL_LOCK, [](lv_event_t *e)
          { AppState::instance().lockPhone(); }, lv_palette_main(LV_PALETTE_RED)},
     };
 
     const AppIcon page_apps[] = {
-        {"SMS", LV_SYMBOL_LIST, [](lv_event_t *e) {}, lv_palette_main(LV_PALETTE_BLUE)},
+        {"SMS", UI_SYMBOL_COMMENT, [](lv_event_t *e) {}, lv_palette_main(LV_PALETTE_BLUE)},
         {"Gallery", LV_SYMBOL_IMAGE, [](lv_event_t *e) {}, lv_palette_main(LV_PALETTE_PINK)},
         {"Music", LV_SYMBOL_AUDIO, [](lv_event_t *e) {}, lv_palette_main(LV_PALETTE_PURPLE)},
         {"Files", LV_SYMBOL_DIRECTORY, [](lv_event_t *e) {}, lv_palette_main(LV_PALETTE_BROWN)},
@@ -82,15 +108,16 @@ void screen_home(lv_obj_t *parent)
     lv_obj_align(page_apps_container, LV_ALIGN_TOP_MID, 0, 0);
     lv_obj_set_style_bg_opa(page_apps_container, LV_OPA_TRANSP, 0);
     lv_obj_set_style_border_width(page_apps_container, 0, 0);
-    lv_obj_set_style_pad_all(page_apps_container, icon_gap, 0);
+    lv_obj_set_style_pad_hor(page_apps_container, icon_gap, 0);
     lv_obj_set_style_pad_bottom(page_apps_container, 85 + icon_gap, 0); // Leave space for dock
+    lv_obj_set_style_pad_top(page_apps_container, 24 + icon_gap, 0); // Leave space for status bar
 
     for (int i = 0; i < page_count; ++i)
     {
         const AppIcon &app = page_apps[i];
 
         const int x = (i % 3) * (icon_size + icon_gap);
-        const int y = (i / 3) * (icon_size + 15 + icon_gap);
+        const int y = (i / 3) * (icon_size + 10 + icon_gap);
 
         draw_app_icon(&app, page_apps_container, x, y,  icon_size, icon_radius);
     }

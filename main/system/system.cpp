@@ -23,6 +23,15 @@ SystemAPI::BluetoothStatus SystemAPI::getBluetoothStatus() const {
     return {true};
 }
 
+SystemAPI::CellularStatus SystemAPI::getCellularStatus() const {
+    // Placeholder implementation
+    CellularStatus status;
+    status.simCardPresent = true;
+    std::snprintf(status.carrierName, sizeof(status.carrierName), "Cube");
+    status.signalStrength = -70;
+    return status;
+}
+
 std::string SystemAPI::getCurrentTime() const {
     std::time_t now = std::time(nullptr);
     char buf[10];

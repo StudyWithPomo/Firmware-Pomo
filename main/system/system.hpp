@@ -23,6 +23,13 @@ public:
         bool isEnabled;
     };
 
+    // Cellular status
+    struct CellularStatus {
+        bool simCardPresent;
+        char carrierName[32];
+        int signalStrength; // in dBm
+    };
+
     // Get battery status
     BatteryStatus getBatteryStatus() const;
 
@@ -31,6 +38,9 @@ public:
 
     // Get Bluetooth status
     BluetoothStatus getBluetoothStatus() const;
+
+    // Get Cellular status
+    CellularStatus getCellularStatus() const;
 
     // Get current time as string
     std::string getCurrentTime() const;
