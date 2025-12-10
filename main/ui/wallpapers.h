@@ -6,6 +6,8 @@ extern "C" {
 #include "lvgl.h"
 
 extern const lv_image_dsc_t blue;
+extern const lv_image_dsc_t blue_wave;
+extern const lv_image_dsc_t gray_arc;
 extern const lv_image_dsc_t light;
 
 #ifdef __cplusplus

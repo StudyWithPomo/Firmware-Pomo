@@ -66,7 +66,7 @@ void screen_home(lv_obj_t *parent)
 
     lv_obj_t *bg = lv_img_create(parent);
     lv_obj_set_size(bg, lv_pct(100), lv_pct(100));
-    lv_img_set_src(bg, &blue);
+    lv_img_set_src(bg, &gray_arc);
     lv_obj_set_style_border_width(bg, 0, 0);
     lv_obj_set_style_radius(bg, 0, 0);
 
@@ -78,6 +78,7 @@ void screen_home(lv_obj_t *parent)
     lv_obj_set_style_bg_color(dock, lv_color_hex(0x333333), 0);
     lv_obj_set_style_bg_opa(dock, LV_OPA_70, 0);
     lv_obj_set_style_bg_grad_color(dock, lv_color_hex(0x000000), 0);
+    lv_obj_set_style_bg_grad_opa(dock, LV_OPA_90, 0);
     lv_obj_set_style_bg_grad_dir(dock, LV_GRAD_DIR_VER, 0);
 
     const AppIcon dock_apps[] = {

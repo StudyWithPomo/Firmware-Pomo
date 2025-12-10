@@ -19,8 +19,10 @@ idf_component_register(
     "ui/screens/home_screen.cpp"
     "ui/screens/lock_screen.cpp"
 
-    "ui/wallpapers/light.c"
     "ui/wallpapers/blue.c"
+    "ui/wallpapers/blue_wave.c"
+    "ui/wallpapers/gray_arc.c"
+    "ui/wallpapers/light.c"
 
     INCLUDE_DIRS 
     "."
