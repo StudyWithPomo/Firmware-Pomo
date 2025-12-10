@@ -99,6 +99,8 @@ void ui_root_init()
     lv_obj_set_flex_align(status_bar, LV_FLEX_ALIGN_START, LV_FLEX_ALIGN_CENTER, LV_FLEX_ALIGN_CENTER);
     lv_obj_set_style_pad_ver(status_bar, 0, 0);
     lv_obj_set_style_pad_hor(status_bar, 5, 0);
+    lv_obj_set_scroll_dir(status_bar, LV_DIR_NONE);
+    lv_obj_set_scrollbar_mode(status_bar, LV_SCROLLBAR_MODE_OFF);
 
     lv_obj_t *cell_label = ui_create_status_label(status_bar, "...");
     lv_obj_set_style_text_font(cell_label, &ext_symbols_14, 0);
