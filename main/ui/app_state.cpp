@@ -38,6 +38,14 @@ void AppState::update() {
     }
 }
 
+void AppState::returnToHome() {
+    Navigator::instance().navigate(ScreenID::HOME);
+}
+
+void AppState::openSettings() {
+    Navigator::instance().navigate(ScreenID::SETTINGS);
+}
+
 void AppState::unlockPhone() {
     Navigator::instance().navigate(ScreenID::HOME);
 }

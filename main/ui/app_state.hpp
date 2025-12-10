@@ -13,6 +13,9 @@ public:
     void unlockPhone();
     void lockPhone();
 
+    void returnToHome();
+    void openSettings();
+
     void update();
 
 private:

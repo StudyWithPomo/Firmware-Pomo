@@ -1,5 +1,6 @@
 #include <ui/screens.hpp>
 #include <ui/app_state.hpp>
+#include <ui/ui_root.hpp>
 
 #include "lvgl.h"
 #include "esp_log.h"
@@ -35,6 +36,8 @@ void draw_app_icon(const AppIcon *app, lv_obj_t *parent, int x, int y, int icon_
 
 void screen_home(lv_obj_t *parent)
 {
+    ui_toggle_time_display(true);
+
     lv_obj_t *bg = lv_obj_create(parent);
     lv_obj_set_size(bg, lv_pct(100), lv_pct(100));
     lv_obj_set_style_bg_color(bg, lv_color_hex(0x000000), 0);

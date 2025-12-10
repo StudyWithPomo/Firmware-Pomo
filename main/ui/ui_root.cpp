@@ -4,18 +4,18 @@
 #include "ui_root.hpp"
 #include "lvgl.h"
 
-static lv_obj_t* status_bar;
-static lv_obj_t* content_area;
-static bool display_time = true;
+static lv_obj_t *status_bar;
+static lv_obj_t *content_area;
+static lv_subject_t display_time_subject;
 
 void ui_toggle_time_display(bool enable)
 {
-    display_time = enable;
+    lv_subject_set_int(&display_time_subject, enable ? 1 : 0);
 }
 
-lv_obj_t* ui_create_status_label(lv_obj_t* parent, const char* text)
+lv_obj_t *ui_create_status_label(lv_obj_t *parent, const char *text)
 {
-    lv_obj_t* label = lv_label_create(parent);
+    lv_obj_t *label = lv_label_create(parent);
     lv_label_set_text(label, text);
     lv_obj_set_style_text_color(label, lv_color_hex(0xFFFFFF), 0);
     return label;
@@ -24,8 +24,9 @@ lv_obj_t* ui_create_status_label(lv_obj_t* parent, const char* text)
 void ui_root_init()
 {
     SystemAPI system = SystemAPI::instance();
+    lv_subject_init_int(&display_time_subject, 1);
 
-    lv_obj_t* root = lv_scr_act();
+    lv_obj_t *root = lv_scr_act();
     lv_obj_set_layout(root, LV_LAYOUT_FLEX);
     lv_obj_set_flex_flow(root, LV_FLEX_FLOW_COLUMN);
     lv_obj_set_style_pad_gap(root, 0, 0);
@@ -41,51 +42,74 @@ void ui_root_init()
     lv_obj_set_flex_flow(status_bar, LV_FLEX_FLOW_ROW);
     lv_obj_set_style_pad_all(status_bar, 0, 0);
 
-    if (display_time) {
-        std::string time = system.getCurrentTime();
-        lv_obj_t* time_label = ui_create_status_label(status_bar, time.c_str());
-        lv_obj_set_flex_grow(time_label, 1);
-        lv_subject_add_observer_obj(
-            &AppState::instance().time_subject, 
-            [](lv_observer_t * observer, lv_subject_t * subject){
-                lv_obj_t *label = lv_observer_get_target_obj(observer);
-                lv_label_set_text(label, lv_subject_get_string(subject));
-            },
-            time_label,
-            NULL
-        );
-    } else {
-        lv_obj_t* spacer = lv_obj_create(status_bar);
-        lv_obj_set_flex_grow(spacer, 1);
-        lv_obj_set_style_bg_opa(spacer, LV_OPA_TRANSP, 0);
-        lv_obj_set_style_border_width(spacer, 0, 0);
+    std::string time = system.getCurrentTime();
+    lv_obj_t *time_label = ui_create_status_label(status_bar, time.c_str());
+    lv_obj_set_flex_grow(time_label, 1);
+    lv_subject_add_observer_obj(
+        &AppState::instance().time_subject,
+        [](lv_observer_t *observer, lv_subject_t *subject)
+        {
+            lv_obj_t *label = lv_observer_get_target_obj(observer);
+            lv_label_set_text(label, lv_subject_get_string(subject));
+        },
+        time_label,
+        NULL);
+
+    lv_subject_add_observer_obj(
+        &display_time_subject,
+        [](lv_observer_t *observer, lv_subject_t *subject)
+        {
+            lv_obj_t *label = lv_observer_get_target_obj(observer);
+            bool show = lv_subject_get_int(subject);
+
+            if (show)
+            {
+                lv_obj_set_style_opa(label, LV_OPA_COVER, 0);
+            }
+            else
+            {
+                lv_obj_set_style_opa(label, LV_OPA_TRANSP, 0);
+            }
+        },
+        time_label,
+        NULL);
+
+    if (lv_subject_get_int(&display_time_subject))
+    {
+        lv_obj_clear_flag(time_label, LV_OBJ_FLAG_HIDDEN);
+    }
+    else
+    {
+        lv_obj_add_flag(time_label, LV_OBJ_FLAG_HIDDEN);
     }
 
     SystemAPI::BluetoothStatus bt_status = system.getBluetoothStatus();
-    if (bt_status.isEnabled){
-        lv_obj_t* bt_label = ui_create_status_label(status_bar, LV_SYMBOL_BLUETOOTH);
+    if (bt_status.isEnabled)
+    {
+        lv_obj_t *bt_label = ui_create_status_label(status_bar, LV_SYMBOL_BLUETOOTH);
     }
 
     SystemAPI::WiFiStatus wifi_status = system.getWiFiStatus();
-    if (wifi_status.isConnected){
-        lv_obj_t* wifi_label = ui_create_status_label(status_bar, LV_SYMBOL_WIFI);
+    if (wifi_status.isConnected)
+    {
+        lv_obj_t *wifi_label = ui_create_status_label(status_bar, LV_SYMBOL_WIFI);
     }
 
     SystemAPI::BatteryStatus battery = system.getBatteryStatus();
     char battery_fmt[5];
     snprintf(battery_fmt, sizeof(battery_fmt), "%d%%", battery.percent);
-    lv_obj_t* battery_label = ui_create_status_label(status_bar, battery_fmt);
+    lv_obj_t *battery_label = ui_create_status_label(status_bar, battery_fmt);
     lv_subject_add_observer_obj(
-        &AppState::instance().battery_subject, 
-        [](lv_observer_t * observer, lv_subject_t * subject){
+        &AppState::instance().battery_subject,
+        [](lv_observer_t *observer, lv_subject_t *subject)
+        {
             lv_obj_t *label = lv_observer_get_target_obj(observer);
             char battery_fmt[5];
             snprintf(battery_fmt, sizeof(battery_fmt), "%d%%", static_cast<int>(lv_subject_get_int(subject)));
             lv_label_set_text(label, battery_fmt);
         },
         battery_label,
-        NULL
-    );
+        NULL);
 
     content_area = lv_obj_create(root);
     lv_obj_set_width(content_area, LV_PCT(100));
@@ -94,7 +118,7 @@ void ui_root_init()
     lv_obj_set_style_border_width(content_area, 0, 0);
 }
 
-lv_obj_t* ui_get_content_area()
+lv_obj_t *ui_get_content_area()
 {
     return content_area;
 }
