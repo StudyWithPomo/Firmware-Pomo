@@ -9,6 +9,3 @@ void screen_sms(lv_obj_t* parent) {
 void screen_contacts(lv_obj_t* parent) {
     return;
 }
-void screen_settings(lv_obj_t* parent) {
-    return;
-}

@@ -62,4 +62,3 @@ void AppState::unlockPhone() {
 void AppState::lockPhone() {
     Navigator::instance().navigate(ScreenID::LOCK);
 }
-

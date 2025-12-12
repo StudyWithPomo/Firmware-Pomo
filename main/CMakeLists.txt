@@ -20,6 +20,7 @@ idf_component_register(
     "ui/screens/stubs.cpp"
     "ui/screens/home_screen.cpp"
     "ui/screens/lock_screen.cpp"
+    "ui/screens/settings_screen.cpp"
 
     "ui/wallpapers/blue.c"
     "ui/wallpapers/blue_wave.c"

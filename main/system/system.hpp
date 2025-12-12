@@ -15,6 +15,7 @@ public:
     // WiFi status and signal
     struct WiFiStatus {
         bool isConnected;
+        char ssid[32];
         int signalStrength; // in dBm
     };
 

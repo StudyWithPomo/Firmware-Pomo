@@ -16,7 +16,7 @@ SystemAPI::BatteryStatus SystemAPI::getBatteryStatus() const {
 
 SystemAPI::WiFiStatus SystemAPI::getWiFiStatus() const {
     // Placeholder implementation
-    return {true, -60};
+    return {true, "Fios-S2f3Y", -60};
 }
 
 SystemAPI::BluetoothStatus SystemAPI::getBluetoothStatus() const {
