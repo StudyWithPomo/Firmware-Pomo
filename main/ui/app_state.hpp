@@ -7,7 +7,6 @@ public:
     static AppState& instance();
 
     lv_subject_t time_subject;
-    lv_subject_t date_subject;
     lv_subject_t battery_subject;
 
     lv_subject_t cell_subject;

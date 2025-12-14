@@ -47,20 +47,6 @@ long SystemAPI::getCurrentTime() const {
     return clock_gettime(CLOCK_REALTIME, &ts) == 0 ? ts.tv_sec : -1;
 }
 
-std::string SystemAPI::getCurrentTimeFormatted() const {
-    std::time_t now = getCurrentTime();
-    char buf[30];
-    std::strftime(buf, sizeof(buf), "%I:%M %p", std::localtime(&now));
-    return std::string(buf);
-}
-
-std::string SystemAPI::getCurrentDate() const {
-    std::time_t now = getCurrentTime();
-    char buf[30];
-    std::strftime(buf, sizeof(buf), "%A, %B %d", std::localtime(&now));
-    return std::string(buf);
-}
-
 bool operator!=(const SystemAPI::CellularStatus& a, const SystemAPI::CellularStatus& b) {
     return (a.simCardPresent != b.simCardPresent) ||
            strcmp(a.carrierName, b.carrierName) ||

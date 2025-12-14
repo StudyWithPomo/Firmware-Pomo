@@ -1,6 +1,7 @@
 #include <system/system.hpp>
 #include <ui/app_state.hpp>
 #include <ui/fonts.h>
+#include <utilities.h>
 
 #include "ui_root.hpp"
 #include "lvgl.h"
@@ -147,8 +148,7 @@ void ui_root_init()
         battery_label,
         NULL);
 
-    std::string time = system.getCurrentTimeFormatted();
-    lv_obj_t *time_label = ui_create_status_label(status_bar, time.c_str());
+    lv_obj_t *time_label = ui_create_status_label(status_bar, "--:--");
     lv_obj_add_flag(time_label, LV_OBJ_FLAG_IGNORE_LAYOUT);
     lv_obj_set_style_text_align(time_label, LV_TEXT_ALIGN_CENTER, 0);
     lv_obj_align(time_label, LV_ALIGN_CENTER, 0, 0);
@@ -157,7 +157,8 @@ void ui_root_init()
         [](lv_observer_t *observer, lv_subject_t *subject)
         {
             lv_obj_t *label = lv_observer_get_target_obj(observer);
-            lv_label_set_text(label, lv_subject_get_string(subject));
+            const char *time = format_time(*(long *)lv_subject_get_pointer(subject), "%I:%M %p");
+            lv_label_set_text(label, time);
         },
         time_label,
         NULL);

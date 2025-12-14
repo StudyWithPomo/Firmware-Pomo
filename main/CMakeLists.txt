@@ -3,6 +3,7 @@ idf_component_register(
 
     SRCS 
     "main.cpp" 
+    "utilities.cpp"
 
     "hal/display.c" 
     "hal/touch.c" 

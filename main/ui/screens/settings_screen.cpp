@@ -1,9 +1,10 @@
-#include <system/system.hpp>
-
-#include <ui/app_state.hpp>
-#include <ui/screens.hpp>
 #include <cstring>
 #include <ctime>
+
+#include <system/system.hpp>
+#include <ui/app_state.hpp>
+#include <ui/screens.hpp>
+#include <utilities.h>
 
 #include "esp_log.h"
 
@@ -19,6 +20,8 @@ static constexpr const lv_buttonmatrix_ctrl_t kb_numpad_ctrl[] =
         LV_BUTTONMATRIX_CTRL_WIDTH_2, LV_BUTTONMATRIX_CTRL_WIDTH_2, LV_BUTTONMATRIX_CTRL_WIDTH_2,
         LV_BUTTONMATRIX_CTRL_WIDTH_2, LV_BUTTONMATRIX_CTRL_WIDTH_2, LV_BUTTONMATRIX_CTRL_WIDTH_2,
         LV_BUTTONMATRIX_CTRL_WIDTH_2, LV_BUTTONMATRIX_CTRL_WIDTH_2, LV_BUTTONMATRIX_CTRL_WIDTH_2};
+
+#define KB_HEIGHT 40
 
 void set_time_cb(lv_event_t *e)
 {
@@ -124,7 +127,6 @@ lv_obj_t *bluetooth_settings_page(lv_obj_t *parent)
 
 lv_obj_t *date_time_settings_page(lv_obj_t *parent)
 {
-    SystemAPI system = SystemAPI::instance();
     AppState appState = AppState::instance();
 
     lv_obj_t *page = lv_menu_page_create(parent, NULL);
@@ -135,6 +137,15 @@ lv_obj_t *date_time_settings_page(lv_obj_t *parent)
     lv_obj_t *label = lv_label_create(cont);
     lv_label_set_text(label, "Date and Time Settings");
 
+    lv_obj_t *keyboard = lv_keyboard_create(lv_layer_top());
+    lv_obj_add_flag(keyboard, LV_OBJ_FLAG_HIDDEN);
+    lv_keyboard_set_map(keyboard, LV_KEYBOARD_MODE_USER_4, kb_numpad_map, kb_numpad_ctrl);
+    lv_keyboard_set_mode(keyboard, LV_KEYBOARD_MODE_USER_4);
+    lv_obj_set_size(keyboard, lv_pct(100), lv_pct(KB_HEIGHT));
+    lv_obj_align(keyboard, LV_ALIGN_BOTTOM_MID, 0, 0);
+
+    lv_menu_separator_create(page);
+
     cont = lv_menu_cont_create(page);
     lv_obj_t *time_label = lv_label_create(cont);
     lv_subject_add_observer_obj(
@@ -142,35 +153,15 @@ lv_obj_t *date_time_settings_page(lv_obj_t *parent)
         [](lv_observer_t *observer, lv_subject_t *subject)
         {
             lv_obj_t *label = lv_observer_get_target_obj(observer);
-            lv_label_set_text_fmt(label, "Current Time: %s", lv_subject_get_string(subject));
+            const char *buffer = format_time(*(long *)lv_subject_get_pointer(subject), "%I:%M %p");
+            lv_label_set_text_fmt(label, "Current Time: %s", buffer);
         },
         time_label,
         NULL);
 
     cont = lv_menu_cont_create(page);
-    lv_obj_t *date_label = lv_label_create(cont);
-    lv_subject_add_observer_obj(
-        &appState.date_subject,
-        [](lv_observer_t *observer, lv_subject_t *subject)
-        {
-            lv_obj_t *label = lv_observer_get_target_obj(observer);
-            lv_label_set_text_fmt(label, "Current Date:\n%s", lv_subject_get_string(subject));
-        },
-        date_label,
-        NULL);
-
-    lv_menu_separator_create(page);
-
-    lv_obj_t *keyboard = lv_keyboard_create(lv_layer_top());
-    lv_obj_add_flag(keyboard, LV_OBJ_FLAG_HIDDEN);
-    lv_keyboard_set_map(keyboard, LV_KEYBOARD_MODE_USER_4, kb_numpad_map, kb_numpad_ctrl);
-    lv_keyboard_set_mode(keyboard, LV_KEYBOARD_MODE_USER_4);
-    lv_obj_set_size(keyboard, lv_pct(100), lv_pct(40));
-    lv_obj_align(keyboard, LV_ALIGN_BOTTOM_MID, 0, 0);
-
-    cont = lv_menu_cont_create(page);
     lv_obj_t *time_input = lv_textarea_create(cont);
-    lv_obj_set_width(time_input, lv_pct(40));
+    lv_obj_set_width(time_input, lv_pct(50));
     lv_textarea_set_placeholder_text(time_input, "HHMM");
     lv_textarea_set_accepted_chars(time_input, "0123456789");
     lv_textarea_set_max_length(time_input, 4);
@@ -210,8 +201,21 @@ lv_obj_t *date_time_settings_page(lv_obj_t *parent)
     lv_menu_separator_create(page);
 
     cont = lv_menu_cont_create(page);
+    lv_obj_t *date_label = lv_label_create(cont);
+    lv_subject_add_observer_obj(
+        &appState.time_subject,
+        [](lv_observer_t *observer, lv_subject_t *subject)
+        {
+            lv_obj_t *label = lv_observer_get_target_obj(observer);
+            const char *buffer = format_time(*(long *)lv_subject_get_pointer(subject), "%b %d, %Y");
+            lv_label_set_text_fmt(label, "Current Date: %s", buffer);
+        },
+        date_label,
+        NULL);
+
+    cont = lv_menu_cont_create(page);
     lv_obj_t *date_input = lv_textarea_create(cont);
-    lv_obj_set_width(date_input, lv_pct(40));
+    lv_obj_set_width(date_input, lv_pct(50));
     lv_textarea_set_placeholder_text(date_input, "MMDDYYYY");
     lv_textarea_set_accepted_chars(date_input, "0123456789");
     lv_textarea_set_max_length(date_input, 8);
@@ -282,8 +286,7 @@ void screen_settings(lv_obj_t *parent)
     lv_obj_t *main_page = lv_menu_page_create(menu, NULL);
 
     cont = lv_menu_cont_create(main_page);
-    lv_obj_t *wifi_box = lv_menu_cont_create(cont);
-    label = lv_label_create(wifi_box);
+    label = lv_label_create(cont);
     lv_label_set_text_fmt(label, "%s WiFi Settings", LV_SYMBOL_WIFI);
     lv_menu_set_load_page_event(menu, cont, wifi_settings_page(menu));
 

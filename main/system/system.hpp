@@ -49,12 +49,6 @@ public:
     // Set current time in seconds since epoch
     // Returns 0 on success, non-zero on failure
     int setCurrentTime(long epochSeconds) const;
-
-    // Get current time as formatted string
-    std::string getCurrentTimeFormatted() const;
-
-    // Get current date as string
-    std::string getCurrentDate() const;
 };
 
 bool operator!=(const SystemAPI::CellularStatus& a, const SystemAPI::CellularStatus& b);

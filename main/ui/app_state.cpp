@@ -6,16 +6,14 @@ AppState& AppState::instance() {
     return inst;
 }
 
-static char time_buf[12] = {0};
-static char date_buf[32] = {0};
 static SystemAPI::CellularStatus cell_status_cache = {};
+static long current_time_cache = 0;
 
 AppState::AppState() {
     SystemAPI system = SystemAPI::instance();
 
-    lv_subject_init_string(&time_subject, time_buf, nullptr, sizeof(time_buf), system.getCurrentTimeFormatted().c_str());
-
-    lv_subject_init_string(&date_subject, date_buf, nullptr, sizeof(date_buf), system.getCurrentDate().c_str());
+    current_time_cache = system.getCurrentTime();
+    lv_subject_init_pointer(&time_subject, &current_time_cache);
     
     lv_subject_init_int(&battery_subject, system.getBatteryStatus().percent);
 
@@ -25,14 +23,10 @@ AppState::AppState() {
 void AppState::update() {
     SystemAPI system = SystemAPI::instance();
 
-    const std::string current_time = system.getCurrentTimeFormatted();
-    if (current_time != lv_subject_get_string(&time_subject)) {
-        lv_subject_copy_string(&time_subject, current_time.c_str());        
-    }
-
-    const std::string current_date = system.getCurrentDate();
-    if (current_date !=  lv_subject_get_string(&date_subject)) {
-        lv_subject_copy_string(&date_subject, current_date.c_str());
+    const long current_time = system.getCurrentTime();
+    if (current_time != current_time_cache) {
+        current_time_cache = current_time;
+        lv_subject_set_pointer(&time_subject, &current_time_cache);
     }
 
     const SystemAPI::BatteryStatus battery_status = system.getBatteryStatus();
@@ -43,7 +37,7 @@ void AppState::update() {
     const SystemAPI::CellularStatus cellular_status = system.getCellularStatus();
     if (cellular_status != cell_status_cache) {
         lv_memcpy(&cell_status_cache, &cellular_status, sizeof(SystemAPI::CellularStatus));
-        lv_subject_notify(&cell_subject);
+        lv_subject_set_pointer(&cell_subject, &cell_status_cache);
     }
 }
 

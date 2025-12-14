@@ -1,13 +1,13 @@
 #include "lvgl.h"
 #include "font/lv_font.h"
+#include <ctime>
 
+#include <system/system.hpp>
 #include <ui/screens.hpp>
 #include <ui/app_state.hpp>
 #include <ui/ui_root.hpp>
-
 #include <ui/wallpapers.h>
-
-#include <system/system.hpp>
+#include <utilities.h>
 
 void screen_lock(lv_obj_t *parent)
 {
@@ -31,17 +31,18 @@ void screen_lock(lv_obj_t *parent)
     lv_observer_cb_t date_cb = [](lv_observer_t *observer, lv_subject_t *subject)
     {
         lv_obj_t *label = lv_observer_get_target_obj(observer);
-        lv_label_set_text(label, lv_subject_get_string(subject));
+        const char *buffer = format_time(*(long *)lv_subject_get_pointer(subject), "%A, %B %d");
+        lv_label_set_text(label, buffer);
     };
 
     lv_subject_add_observer_obj(
-        &AppState::instance().date_subject,
+        &AppState::instance().time_subject,
         date_cb,
         date_label,
         NULL);
 
     lv_subject_add_observer_obj(
-        &AppState::instance().date_subject,
+        &AppState::instance().time_subject,
         date_cb,
         date_label_shadow,
         NULL);
@@ -60,7 +61,8 @@ void screen_lock(lv_obj_t *parent)
     lv_observer_cb_t time_cb = [](lv_observer_t *observer, lv_subject_t *subject)
     {
         lv_obj_t *label = lv_observer_get_target_obj(observer);
-        lv_label_set_text(label, lv_subject_get_string(subject));
+        const char *buffer = format_time(*(long *)lv_subject_get_pointer(subject), "%I:%M %p");
+        lv_label_set_text(label, buffer);
     };
 
     lv_subject_add_observer_obj(
