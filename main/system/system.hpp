@@ -43,8 +43,15 @@ public:
     // Get Cellular status
     CellularStatus getCellularStatus() const;
 
-    // Get current time as string
-    std::string getCurrentTime() const;
+    // Get current time in seconds since epoch
+    long getCurrentTime() const;
+
+    // Set current time in seconds since epoch
+    // Returns 0 on success, non-zero on failure
+    int setCurrentTime(long epochSeconds) const;
+
+    // Get current time as formatted string
+    std::string getCurrentTimeFormatted() const;
 
     // Get current date as string
     std::string getCurrentDate() const;

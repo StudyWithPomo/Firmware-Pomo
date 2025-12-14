@@ -13,7 +13,7 @@ static SystemAPI::CellularStatus cell_status_cache = {};
 AppState::AppState() {
     SystemAPI system = SystemAPI::instance();
 
-    lv_subject_init_string(&time_subject, time_buf, nullptr, sizeof(time_buf), system.getCurrentTime().c_str());
+    lv_subject_init_string(&time_subject, time_buf, nullptr, sizeof(time_buf), system.getCurrentTimeFormatted().c_str());
 
     lv_subject_init_string(&date_subject, date_buf, nullptr, sizeof(date_buf), system.getCurrentDate().c_str());
     
@@ -25,7 +25,7 @@ AppState::AppState() {
 void AppState::update() {
     SystemAPI system = SystemAPI::instance();
 
-    const std::string current_time = system.getCurrentTime();
+    const std::string current_time = system.getCurrentTimeFormatted();
     if (current_time != lv_subject_get_string(&time_subject)) {
         lv_subject_copy_string(&time_subject, current_time.c_str());        
     }

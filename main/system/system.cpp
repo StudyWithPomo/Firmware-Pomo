@@ -1,4 +1,5 @@
 #include "system.hpp"
+#include "time.h"
 #include <ctime>
 #include <cstring>
 #include <string>
@@ -34,15 +35,27 @@ SystemAPI::CellularStatus SystemAPI::getCellularStatus() const {
     return status;
 }
 
-std::string SystemAPI::getCurrentTime() const {
-    std::time_t now = std::time(nullptr);
-    char buf[10];
+int SystemAPI::setCurrentTime(long epochSeconds) const {
+    timespec ts;
+    ts.tv_sec = epochSeconds;
+    ts.tv_nsec = 0;
+    return clock_settime(CLOCK_REALTIME, &ts);
+}
+
+long SystemAPI::getCurrentTime() const {
+    timespec ts;
+    return clock_gettime(CLOCK_REALTIME, &ts) == 0 ? ts.tv_sec : -1;
+}
+
+std::string SystemAPI::getCurrentTimeFormatted() const {
+    std::time_t now = getCurrentTime();
+    char buf[30];
     std::strftime(buf, sizeof(buf), "%I:%M %p", std::localtime(&now));
     return std::string(buf);
 }
 
 std::string SystemAPI::getCurrentDate() const {
-    std::time_t now = std::time(nullptr);
+    std::time_t now = getCurrentTime();
     char buf[30];
     std::strftime(buf, sizeof(buf), "%A, %B %d", std::localtime(&now));
     return std::string(buf);

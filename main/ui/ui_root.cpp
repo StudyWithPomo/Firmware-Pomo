@@ -147,7 +147,7 @@ void ui_root_init()
         battery_label,
         NULL);
 
-    std::string time = system.getCurrentTime();
+    std::string time = system.getCurrentTimeFormatted();
     lv_obj_t *time_label = ui_create_status_label(status_bar, time.c_str());
     lv_obj_add_flag(time_label, LV_OBJ_FLAG_IGNORE_LAYOUT);
     lv_obj_set_style_text_align(time_label, LV_TEXT_ALIGN_CENTER, 0);
