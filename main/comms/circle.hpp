@@ -5,8 +5,9 @@
 // drops friends that went quiet, and on any change passes the circle to Session::setCircle
 // (multiplier and bonus pause) and AppState (lamps, names, the laptop's circle message).
 //
-// Beacons arrive through circle_on_receive(). The radio (ESP-NOW) comes in milestone L2; until
-// then, building with POMO_FAKE_PEER=1 feeds scripted friends through the same path:
+// The radio is ESP-NOW broadcast on Wi-Fi channel 1, with no router: every beacon goes to every
+// Pomo in range, and beacons arrive through circle_on_receive(). To test on one board, building
+// with POMO_FAKE_PEER=1 also feeds scripted friends through the same path:
 //   Ava studies for 100 s (drifting from 40 to 55 s), then goes quiet for 20 s; repeats
 //   Dev is always nearby but resting (not in a session): 3× with both, 2× while Ava is quiet
 #include <stddef.h>
@@ -16,7 +17,8 @@
 #define POMO_FAKE_PEER 0
 #endif
 
-// Start the circle task (after Session::init and AppState::attach)
+// Start Wi-Fi, ESP-NOW and the circle task (after Session::init, AppState::attach and
+// Bluetooth). If the radio fails it logs why and the circle runs without it.
 void circle_init();
 
 // The name this device shows in friends' circles (any task, any time)

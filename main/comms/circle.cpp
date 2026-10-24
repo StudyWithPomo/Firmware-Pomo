@@ -2,8 +2,11 @@
 
 #include <string.h>
 
+#include "esp_event.h"
 #include "esp_log.h"
+#include "esp_now.h"
 #include "esp_timer.h"
+#include "esp_wifi.h"
 #include "freertos/FreeRTOS.h"
 #include "freertos/queue.h"
 #include "freertos/task.h"
@@ -16,6 +19,10 @@
 static const char *TAG = "circle";
 
 static const uint32_t TICK_MS = 500;
+
+// Every Pomo listens and broadcasts on this Wi-Fi channel. No router: the station never connects.
+static const uint8_t CHANNEL = 1;
+static const uint8_t BROADCAST[ESP_NOW_ETH_ALEN] = {0xff, 0xff, 0xff, 0xff, 0xff, 0xff};
 
 struct Received {
     uint8_t mac[6];
@@ -110,9 +117,47 @@ static void fake_peers(uint32_t t_ms)
 }
 #endif
 
+// ESP-NOW calls this on the Wi-Fi task
+static void on_espnow_receive(const esp_now_recv_info_t *info, const uint8_t *data, int len)
+{
+    if (info && data && len > 0) circle_on_receive(info->src_addr, data, (size_t)len);
+}
+
+// Wi-Fi as a station that never connects (no esp_netif: nothing here uses IP), then ESP-NOW
+// with a broadcast peer. BT coexistence is on in sdkconfig.defaults.
+static bool radio_init()
+{
+    esp_err_t err = esp_event_loop_create_default();
+    if (err != ESP_OK && err != ESP_ERR_INVALID_STATE) {
+        ESP_LOGE(TAG, "Event loop: %s", esp_err_to_name(err));
+        return false;
+    }
+    wifi_init_config_t cfg = WIFI_INIT_CONFIG_DEFAULT();
+    esp_now_peer_info_t peer = {};
+    memcpy(peer.peer_addr, BROADCAST, sizeof(BROADCAST));
+    peer.channel = CHANNEL;
+    peer.ifidx = WIFI_IF_STA;
+    peer.encrypt = false;
+
+    if ((err = esp_wifi_init(&cfg)) != ESP_OK ||
+        (err = esp_wifi_set_storage(WIFI_STORAGE_RAM)) != ESP_OK ||
+        (err = esp_wifi_set_mode(WIFI_MODE_STA)) != ESP_OK ||
+        (err = esp_wifi_start()) != ESP_OK ||
+        (err = esp_wifi_set_channel(CHANNEL, WIFI_SECOND_CHAN_NONE)) != ESP_OK ||
+        (err = esp_now_init()) != ESP_OK ||
+        (err = esp_now_register_recv_cb(on_espnow_receive)) != ESP_OK ||
+        (err = esp_now_add_peer(&peer)) != ESP_OK) {
+        ESP_LOGE(TAG, "ESP-NOW failed to start: %s", esp_err_to_name(err));
+        return false;
+    }
+    return true;
+}
+
 static void circle_task(void *arg)
 {
     static CircleCore core;
+    const bool radio = (bool)(intptr_t)arg;
+    int send_failures = 0;
     QueueHandle_t events = Session::instance().subscribe();
     if (!events) ESP_LOGW(TAG, "No session event queue left: the last session's %% stays 0");
 
@@ -137,7 +182,12 @@ static void circle_task(void *arg)
             uint8_t packet[beacon_wire::SIZE];
             const Beacon own = own_beacon(last_pct, seq++);
             beacon_wire::encode(own, packet);
-            // L2 broadcasts `packet` over ESP-NOW here
+            if (radio) {
+                // Fails only when the Wi-Fi TX queue is full; the next beacon comes 1.5 s later
+                const esp_err_t err = esp_now_send(BROADCAST, packet, sizeof(packet));
+                if (err != ESP_OK && send_failures++ % 20 == 0)
+                    ESP_LOGW(TAG, "Beacon not sent (%d so far): %s", send_failures, esp_err_to_name(err));
+            }
             ESP_LOGD(TAG, "beacon %u: %s%s", (unsigned)own.seq, own.in_session ? "studying" : "resting",
                      own.focused ? "" : ", drifting");
 #if POMO_FAKE_PEER
@@ -156,6 +206,9 @@ static void circle_task(void *arg)
 void circle_init()
 {
     s_rx = xQueueCreate(8, sizeof(Received));
-    xTaskCreate(circle_task, "circle", 3072, nullptr, 3, nullptr);
-    ESP_LOGI(TAG, "Study circle ready%s", POMO_FAKE_PEER ? " (fake friends Ava and Dev)" : "");
+    // Without the radio the circle still runs (empty, or with fake friends)
+    const bool radio = radio_init();
+    xTaskCreate(circle_task, "circle", 4096, (void *)(intptr_t)radio, 3, nullptr);
+    ESP_LOGI(TAG, "Study circle ready: %s, channel %u%s", radio ? "ESP-NOW" : "no radio",
+             (unsigned)CHANNEL, POMO_FAKE_PEER ? ", fake friends Ava and Dev" : "");
 }
