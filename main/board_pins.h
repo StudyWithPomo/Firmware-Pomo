@@ -4,7 +4,8 @@
 // Two demo devices run the same firmware; the board is picked at build time:
 //
 //   idf.py build             -> board 1, test board one (rotary encoder)
-//   idf.py -DBOARD=2 build   -> board 2, compact (no encoder, backlight fixed
+//   idf.py -B build-board2 -DBOARD=2 build
+//                            -> board 2, compact (no encoder, backlight fixed
 //                                at 3V3)
 //
 // main/CMakeLists.txt turns the BOARD option into a define; the #ifndef below

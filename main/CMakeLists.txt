@@ -52,12 +52,13 @@ idf_component_register(
 # Which demo board the firmware is wired for. 1 = test board one (rotary encoder),
 # 2 = compact board (no encoder, buzzer on GPIO 2, touch IRQ on 15, backlight
 # fixed at 3V3):
-#   idf.py build            -> 1 (default)
-#   idf.py -DBOARD=2 build  -> 2
-if(NOT BOARD)
-    set(BOARD 1)
-endif()
-if(BOARD != 1 AND BOARD != 2)
+#   idf.py build                            -> 1 (default)
+#   idf.py -B build-board2 -DBOARD=2 build  -> 2
+# The choice is cached in the build folder, so a later plain `idf.py build` in the
+# same folder stays on that board. A folder per board keeps them apart.
+set(BOARD 1 CACHE STRING "Demo board: 1 = test board one, 2 = compact board")
+if(NOT BOARD MATCHES "^[12]$")
     message(FATAL_ERROR "BOARD must be 1 (test board one) or 2 (compact board), got ${BOARD}")
 endif()
-set(CMAKE_C_COMPILE_DEFINITIONS "${CMAKE_C_COMPILE_DEFINITIONS};BOARD=${BOARD}")
+message(STATUS "Pomo: building for board ${BOARD}")
+target_compile_definitions(${COMPONENT_LIB} PRIVATE BOARD=${BOARD})
