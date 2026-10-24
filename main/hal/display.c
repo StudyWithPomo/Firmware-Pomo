@@ -27,6 +27,7 @@ esp_lcd_panel_handle_t panel_handle;
 static esp_lcd_panel_io_handle_t io_handle;
 static lv_display_t *display_handle;
 
+#if HAS_BACKLIGHT
 static esp_err_t backlight_init(void)
 {
     const ledc_timer_config_t timer_cfg = {
@@ -49,13 +50,19 @@ static esp_err_t backlight_init(void)
     ESP_RETURN_ON_ERROR(ledc_channel_config(&channel_cfg), TAG, "backlight channel");
     return ESP_OK;
 }
+#endif
 
 void display_set_brightness(uint8_t pct)
 {
+#if HAS_BACKLIGHT
     if (pct > 100) pct = 100;
     const uint32_t max_duty = (1u << BL_LEDC_RES) - 1;
     ledc_set_duty(BL_LEDC_MODE, BL_LEDC_CHANNEL, max_duty * pct / 100);
     ledc_update_duty(BL_LEDC_MODE, BL_LEDC_CHANNEL);
+#else
+    // Board 2 ties the backlight to 3V3, so there's nothing to dim.
+    (void)pct;
+#endif
 }
 
 esp_err_t init_ili9341_with_lvgl(void)
@@ -97,9 +104,12 @@ esp_err_t init_ili9341_with_lvgl(void)
     ESP_ERROR_CHECK(esp_lcd_panel_set_gap(panel_handle, 0, 0));
     ESP_ERROR_CHECK(esp_lcd_panel_disp_on_off(panel_handle, true));
 
-    // 5) PWM backlight, full brightness to start
+    // 5) PWM backlight, full brightness to start (board 2 ties the backlight to
+    //    3V3, so there's nothing to drive)
+#if HAS_BACKLIGHT
     ESP_ERROR_CHECK(backlight_init());
     display_set_brightness(100);
+#endif
 
     // 6) Initialize LVGL port
     lvgl_port_cfg_t lvgl_cfg = ESP_LVGL_PORT_INIT_CONFIG();
