@@ -28,7 +28,7 @@ esp_err_t init_ili9341_with_lvgl(void)
     const int DISP_WIDTH = 240;
     const int DISP_HEIGHT = 320;
 
-    const spi_host_device_t SPI_HOST = HSPI_HOST;
+    const spi_host_device_t SPI_HOST = SPI2_HOST;
 
     // 1) init SPI bus
     spi_bus_config_t buscfg = ILI9341_PANEL_BUS_SPI_CONFIG(

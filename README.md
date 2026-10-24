@@ -1,32 +1,41 @@
-# _Sample project_
+# Pomo
 
-(See the README.md file in the upper level 'examples' directory for more information about examples.)
+Firmware for **Study Buddy**: a steampunk clockwork pet on your desk that grows when you focus. It runs a hidden Pomodoro timer, owns your XP and level, and reacts when the laptop dashboard ([Frontend-Pomo](https://github.com/StudyWithPomo/Frontend-Pomo)) reports a drift.
 
-This is the simplest buildable example. The example is used by command `idf.py create-project`
-that copies the project to user specified path and set it's name. For more information follow the [docs page](https://docs.espressif.com/projects/esp-idf/en/latest/api-guides/build-system.html#start-a-new-project)
+Built on [Cube OS v1 alpha](https://github.com/ibbydiggy250/Cube_OS_v1_alpha) (ESP-IDF + LVGL 9). Work in progress: the phone UI from Cube OS is still in place and is being replaced milestone by milestone.
 
+## Hardware
 
+| Part | Detail |
+|---|---|
+| MCU | Original ESP32 (Classic BT + Wi-Fi) |
+| Display | 2.8" ILI9341, used landscape 320×240 |
+| Touch | XPT2046 resistive, separate SPI bus |
+| Input | Rotary encoder with push button |
+| Extras | Passive buzzer; battery gauge on Device A |
 
-## How to use example
-We encourage the users to use the example as a template for the new projects.
-A recommended way is to follow the instructions on a [docs page](https://docs.espressif.com/projects/esp-idf/en/latest/api-guides/build-system.html#start-a-new-project).
+### Pin map
 
-## Example folder contents
+| Signal | GPIO |
+|---|---|
+| LCD MOSI / CLK / CS / DC / RST / BL | 14 / 27 / 13 / 12 / 2 / 26 |
+| Touch MOSI / MISO / CLK / CS / IRQ | 21 / 23 / 33 / 32 / 22 |
+| Encoder, buzzer, battery | Not assigned yet |
 
-The project **sample_project** contains one source file in C language [main.c](main/main.c). The file is located in folder [main](main).
+GPIO 12 (LCD DC) is a strapping pin. If boot is flaky, move DC to a free pin.
 
-ESP-IDF projects are built using CMake. The project build configuration is contained in `CMakeLists.txt`
-files that provide set of directives and instructions describing the project's source files and targets
-(executable, library, or both). 
+## Build and flash
 
-Below is short explanation of remaining files in the project folder.
+Requires **ESP-IDF v6.0.2**.
 
+```bash
+idf.py set-target esp32
+idf.py build
+idf.py -p COM4 flash monitor
 ```
-├── CMakeLists.txt
-├── main
-│   ├── CMakeLists.txt
-│   └── main.c
-└── README.md                  This is the file you are currently reading
-```
-Additionally, the sample project contains Makefile and component.mk files, used for the legacy Make based build system. 
-They are not used or needed when building with CMake and idf.py.
+
+`sdkconfig` is generated from `sdkconfig.defaults` and isn't committed. Delete `sdkconfig` after changing the defaults so they take effect. The defaults turn on Classic BT only (no BLE), Wi-Fi/BT coexistence, and the 1.5 MB single-app partition table.
+
+## Laptop protocol
+
+JSON lines at 115200 baud over USB serial (and later Bluetooth SPP). The message set is documented in the frontend repo's README and will be summarized here once the link is implemented.

@@ -1,5 +1,4 @@
-// Copyright 2025 XtraCube
-// Cube OS v1 alpha
+// Pomo firmware (Study Buddy). Based on Cube OS v1 alpha by XtraCube.
 
 #include <stdio.h>
 #include "esp_system.h"
@@ -27,7 +26,7 @@ extern lv_indev_t *s_lv_indev;
 extern "C" void app_main(void)
 {
     esp_log_level_set("*", ESP_LOG_INFO);
-    ESP_LOGI(TAG, "Starting Cube OS v1 alpha...");
+    ESP_LOGI(TAG, "Starting Pomo...");
 
     // Initialize the ILI9341 display with LVGL
     ESP_LOGI(TAG, "Initializing display...");

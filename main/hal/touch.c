@@ -1,4 +1,3 @@
-// /home/sumar/Cube_Phone/Cube_OS_v1_alpha/main/touch.c
 // Initialize XPT2046 (esp_lcd_touch_xpt2046) and register as an LVGL pointer device.
 //
 // NOTE: Adjust pin numbers, SPI host and calibration (x_min/x_max/y_min/y_max) to match your hardware.
@@ -13,7 +12,7 @@
 static const char *TAG = "touch";
 
 /* Hardware configuration - change to your wiring */
-#define TOUCH_SPI_HOST  VSPI_HOST
+#define TOUCH_SPI_HOST  SPI3_HOST
 #define TOUCH_PIN_CS    32
 #define TOUCH_PIN_INT   22
 #define TOUCH_PIN_MOSI  21
