@@ -108,11 +108,41 @@ void Session::endEarly()
     }
 }
 
-void Session::setDrift(bool active, const char *label)
+void Session::endBreak()
+{
+    SessionEvent event;
+    xSemaphoreTake(mutex, portMAX_DELAY);
+    const Phase before = core.phase();
+    const bool ok = core.endBreak(&event);
+    if (ok) publish(&event);
+    xSemaphoreGive(mutex);
+    if (ok) ESP_LOGI(TAG, "Ended %s", phase_name(before));
+}
+
+void Session::endSet()
+{
+    SessionEvent event;
+    xSemaphoreTake(mutex, portMAX_DELAY);
+    const Phase before = core.phase();
+    const bool ok = core.endSet(&event);
+    if (ok) publish(&event);
+    xSemaphoreGive(mutex);
+    if (ok) ESP_LOGI(TAG, "Ended the set during %s", phase_name(before));
+}
+
+void Session::setDrift(bool active, const char *label, DriftKind kind)
 {
     xSemaphoreTake(mutex, portMAX_DELAY);
-    core.setDrift(active, label);
+    core.setDrift(active, label, kind);
     publish(nullptr);
+    xSemaphoreGive(mutex);
+}
+
+void Session::setFocus(CameraState state, const char *label)
+{
+    // No publish: a tick only changes the drift on the next second, in onTick
+    xSemaphoreTake(mutex, portMAX_DELAY);
+    core.setFocus(state, label);
     xSemaphoreGive(mutex);
 }
 

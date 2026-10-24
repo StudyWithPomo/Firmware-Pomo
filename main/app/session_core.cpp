@@ -2,6 +2,8 @@
 
 #include <string.h>
 
+#include "utilities.h"
+
 constexpr int SessionCore::STUDY_OPTIONS[];
 
 int SessionCore::snapStudy(int study_min)
@@ -31,7 +33,7 @@ int SessionCore::baseMultiplier() const
 int SessionCore::effectiveMultiplier() const
 {
     // The bonus pauses while anyone in the circle, us included, is drifting
-    if (drifting_ || friend_drifting_) return 1;
+    if (drifting() || friend_drifting_) return 1;
     return baseMultiplier();
 }
 
@@ -54,6 +56,15 @@ void SessionCore::beginStudy()
     focused_min_ = 0;
     elapsed_min_ = 0;
     earned_xp_ = 0;
+    resetCamera();
+}
+
+void SessionCore::goIdle()
+{
+    phase_ = Phase::IDLE;
+    index_ = 1;
+    remaining_s_ = total_s_ = 0;
+    resetCamera();
 }
 
 void SessionCore::closeMinute()
@@ -99,20 +110,54 @@ bool SessionCore::endEarly(SessionEvent *out)
     if (phase_ != Phase::STUDY) return false;
     out->type = SessionEventType::ENDED_EARLY;
     out->result = finishStudy();   // a partial last minute isn't counted
-    phase_ = Phase::IDLE;
-    index_ = 1;
-    remaining_s_ = total_s_ = 0;
+    goIdle();
     return true;
+}
+
+bool SessionCore::endBreak(SessionEvent *out)
+{
+    out->result = {};
+    switch (phase_) {
+        case Phase::BREAK:
+            index_++;
+            beginStudy();
+            out->type = SessionEventType::BREAK_ENDED;
+            return true;
+        case Phase::LONG_REST:
+            goIdle();
+            out->type = SessionEventType::SET_ENDED;
+            return true;
+        default:
+            return false;
+    }
+}
+
+bool SessionCore::endSet(SessionEvent *out)
+{
+    switch (phase_) {
+        case Phase::STUDY:
+            return endEarly(out);
+        case Phase::BREAK:
+        case Phase::LONG_REST:
+            goIdle();   // nothing to score outside study
+            out->type = SessionEventType::SET_ENDED;
+            out->result = {};
+            return true;
+        default:
+            return false;
+    }
 }
 
 bool SessionCore::tick(SessionEvent *out)
 {
     if (phase_ == Phase::IDLE) return false;
 
-    if (drifting_) drift_s_++;
+    if (phase_ == Phase::STUDY) tickCamera();
+
+    if (drifting()) drift_s_++;
 
     if (phase_ == Phase::STUDY) {
-        if (drifting_) minute_drift_s_++;
+        if (drifting()) minute_drift_s_++;
         const int m = effectiveMultiplier();
         if (m < minute_mult_) minute_mult_ = m;
         if (++minute_s_ >= 60) closeMinute();
@@ -124,43 +169,93 @@ bool SessionCore::tick(SessionEvent *out)
         case Phase::STUDY:
             out->type = SessionEventType::STUDY_ENDED;
             out->result = finishStudy();
+            resetCamera();  // camera drift only counts during study
             phase_ = index_ >= SESSIONS_PER_SET ? Phase::LONG_REST : Phase::BREAK;
             total_s_ = remaining_s_ = (phase_ == Phase::LONG_REST ? LONG_REST_MIN : break_min_) * 60;
             return true;
 
         case Phase::BREAK:
-            index_++;
-            beginStudy();
-            out->type = SessionEventType::BREAK_ENDED;
-            out->result = {};
-            return true;
-
         case Phase::LONG_REST:
-            phase_ = Phase::IDLE;
-            index_ = 1;
-            remaining_s_ = total_s_ = 0;
-            out->type = SessionEventType::SET_ENDED;
-            out->result = {};
-            return true;
+            return endBreak(out);
 
         default:
             return false;
     }
 }
 
-void SessionCore::setDrift(bool active, const char *label)
+void SessionCore::driftChanged(bool was)
 {
-    if (active) {
-        if (!drifting_) drift_s_ = 0;
-        drifting_ = true;
-        strncpy(drift_label_, label ? label : "", sizeof(drift_label_) - 1);
-        drift_label_[sizeof(drift_label_) - 1] = '\0';
-        minute_mult_ = 1;
-    } else {
-        drifting_ = false;
+    const bool now = drifting();
+    if (now && !was) {
         drift_s_ = 0;
-        drift_label_[0] = '\0';
+        minute_mult_ = 1;
+    } else if (!now) {
+        drift_s_ = 0;
     }
+}
+
+void SessionCore::setDrift(bool active, const char *label, DriftKind kind)
+{
+    const bool was = drifting();
+    laptop_drift_ = active;
+    if (active) {
+        laptop_kind_ = kind == DriftKind::IDLE ? DriftKind::IDLE : DriftKind::SITE;
+        copy_utf8(laptop_label_, sizeof(laptop_label_), label);
+    } else {
+        laptop_label_[0] = '\0';
+    }
+    driftChanged(was);
+}
+
+void SessionCore::setFocus(CameraState state, const char *label)
+{
+    if (phase_ != Phase::STUDY) return;
+    camera_heard_ = true;
+    camera_silent_s_ = 0;
+
+    CameraRun run = CameraRun::NONE;   // calibrating neither starts nor ends a drift
+    if (state == CameraState::FOCUSED) run = CameraRun::GOOD;
+    else if (state == CameraState::DRIFTING || state == CameraState::UNFOCUSED) run = CameraRun::BAD;
+    if (run != camera_run_) {
+        camera_run_ = run;
+        camera_run_s_ = 0;
+    }
+    if (run == CameraRun::BAD) {
+        copy_utf8(camera_reason_, sizeof(camera_reason_), label);
+        if (camera_drift_) memcpy(camera_label_, camera_reason_, sizeof(camera_label_));
+    }
+}
+
+void SessionCore::tickCamera()
+{
+    if (!camera_heard_) return;
+    // Counts timer seconds since the last tick, so it is already 1 one second after a tick
+    if (++camera_silent_s_ > CAMERA_TIMEOUT_S) {
+        resetCamera();  // the focus server stopped
+        return;
+    }
+    camera_run_s_++;
+    if (camera_run_ == CameraRun::BAD && camera_run_s_ >= CAMERA_DRIFT_S) setCameraDrift(true);
+    else if (camera_run_ == CameraRun::GOOD && camera_run_s_ >= CAMERA_CLEAR_S) setCameraDrift(false);
+}
+
+void SessionCore::setCameraDrift(bool active)
+{
+    const bool was = drifting();
+    camera_drift_ = active;
+    if (active) memcpy(camera_label_, camera_reason_, sizeof(camera_label_));
+    else camera_label_[0] = '\0';
+    driftChanged(was);
+}
+
+void SessionCore::resetCamera()
+{
+    setCameraDrift(false);
+    camera_run_ = CameraRun::NONE;
+    camera_run_s_ = 0;
+    camera_heard_ = false;
+    camera_silent_s_ = 0;
+    camera_reason_[0] = '\0';
 }
 
 void SessionCore::setCircle(int friends_in_session, bool friend_drifting)
@@ -179,8 +274,18 @@ void SessionCore::snapshot(SessionSnapshot *out) const
     out->break_min = break_min_;
     out->remaining_s = remaining_s_;
     out->total_s = total_s_;
-    out->drifting = drifting_;
-    memcpy(out->drift_label, drift_label_, sizeof(out->drift_label));
+    out->drifting = drifting();
+    // The laptop's drift is shown when both sources are active
+    if (laptop_drift_) {
+        out->drift_kind = laptop_kind_;
+        memcpy(out->drift_label, laptop_label_, sizeof(out->drift_label));
+    } else if (camera_drift_) {
+        out->drift_kind = DriftKind::CAMERA;
+        memcpy(out->drift_label, camera_label_, sizeof(out->drift_label));
+    } else {
+        out->drift_kind = DriftKind::NONE;
+        out->drift_label[0] = '\0';
+    }
     out->drift_s = drift_s_;
     out->multiplier = effectiveMultiplier();
     out->base_multiplier = baseMultiplier();

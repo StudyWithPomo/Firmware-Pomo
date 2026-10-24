@@ -121,5 +121,4 @@ int SystemAPI::setCurrentTime(long epochSeconds) const
 
 // ---- Laptop link (not simulated) ----
 
-void link_send_knob(const char *) {}
 void link_send_circle() {}

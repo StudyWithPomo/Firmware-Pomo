@@ -56,9 +56,9 @@ The PNGs land in `tools/preview/out/`.
 
 ## Laptop protocol
 
-One JSON object per line, over the USB serial port (115200 baud) or Bluetooth. Both work at the same time and carry the same messages.
+One JSON object per line, over the USB serial port (115200 baud) or Bluetooth. Both work at the same time and carry the same messages. The full contract is [`schema/pomo-device.schema.json`](https://github.com/StudyWithPomo/Frontend-Pomo/blob/main/schema/pomo-device.schema.json) in Frontend-Pomo.
 
-**Bluetooth:** the device is discoverable as **Pomo-XXXX** (Bluetooth Classic SPP, the last digits come from its address). Pair it in the laptop's Bluetooth settings; there's no PIN (if one is asked for, it's 1234). Windows then adds a "Standard Serial over Bluetooth link" COM port; open that one (the outgoing port) from the dashboard like the USB port. The device is the source of truth for the timer, focus state, XP and level; the laptop reports drift and settings. Lines that aren't JSON, and unknown messages, are ignored, so the device's own log lines on the same port are harmless.
+**Bluetooth:** the device is discoverable as **Pomo-XXXX** (Bluetooth Classic SPP, the last digits come from its address). Pair it in the laptop's Bluetooth settings; there's no PIN (if one is asked for, it's 1234). Windows then adds a "Standard Serial over Bluetooth link" COM port; open that one (the outgoing port) from the dashboard like the USB port. The device is the source of truth for the timer, drift, XP and level; the laptop reports what it sees (sites, idle, camera focus) and settings. Lines that aren't JSON, and unknown messages, are ignored, so the device's own log lines on the same port are harmless.
 
 **Laptop → device**
 
@@ -68,26 +68,32 @@ One JSON object per line, over the USB serial port (115200 baud) or Bluetooth. B
 {"t":"config","user":"Sidak","pet":{"name":"Mochi","body":"bot","face":"plain","color":"brass"},"time":1792790040,"tz":-240}
 {"t":"start","study":25,"brk":5}
 {"t":"peek"}
+{"t":"end","scope":"break"}
+{"t":"end","scope":"session"}
+{"t":"focus","ts":1792790040.12,"focus":42,"state":"unfocused","reason":"looking_away","window":"neutral","yaw":21.3,"pitch":-3.1,"ear":0.27}
 ```
 
 - `config`: `time` (epoch seconds) and `tz` (minutes east of UTC, i.e. `-new Date().getTimezoneOffset()`) are optional and set the device clock. `level`, `xp` and `hearts` are ignored.
 - `start` begins a session only if none is running; lengths snap to the allowed values.
-- `end`, `break` and `finished` are ignored: the device runs the session.
+- `drift` is for what the laptop sees: `kind` is `site` or `idle`, and `label` is required when `active` is true.
+- `end` with `scope: "break"` ends a break (the next session starts) or the long rest (back to idle). `scope: "session"` ends the whole set: mid-study the session is scored first and an `end` comes back with `early: true`.
+- `focus` is a tick from [ML-Server-Pomo](https://github.com/StudyWithPomo/ML-Server-Pomo) (its stdout line with `"t":"focus"` added by the laptop). The device decides camera drift, during study only: it starts after 10 s of `unfocused` or `drifting`, and ends after 3 s of `focused` or 5 s without a tick. `calibrating` changes nothing. The label comes from `reason` (Away, Drowsy, Looking away, Slouching, Off task, or Camera).
+- `break`, `finished`, and `end` without a `scope` are ignored: the device runs the session.
 
 **Device → laptop**
 
 ```json
-{"t":"hello","fw":"0.5"}
+{"t":"hello","fw":"0.9"}
 {"t":"start","study":25,"brk":5,"session":1}
-{"t":"state","left":522,"total":1500,"phase":"study","focus":"focused","session":1,"drift":"","drift_s":0,"mult":2,"xp":340,"level":1}
+{"t":"state","left":522,"total":1500,"phase":"study","focus":"focused","session":1,"drift":"","drift_kind":"","drift_s":0,"mult":2,"xp":340,"level":1}
 {"t":"end","pct":90,"xp":44,"level":3,"total_xp":1044,"focused_min":22,"elapsed_min":25,"penalty":false,"early":false}
 {"t":"circle","friends":[{"name":"Ava","focused":true,"pct":0}]}
-{"t":"knob","ev":"press"}
 ```
 
 - `state` is sent every second during a session or break (`phase`: `study`, `break`, `long_rest`), and once when it goes back to `idle`.
+- `state.drift_kind` says where the drift shown comes from: `site`, `idle`, `camera`, or `""` when focused. The laptop's drift is shown when both are active.
 - `start` is sent for every session, including ones started on the device and the next session after a break.
 - `end.xp` is the XP change from that session (negative after the under-50% penalty); `total_xp` is the new total.
-- `knob press` means the user peeked at the timer on the device.
+- Raw knob and touch input is never sent.
 
-**Changes the frontend needs:** send `time`/`tz` in `config`; treat `start`, `state` and `end` from the device as the session (instead of running its own timer); drop hearts. With no laptop connected the device runs sessions alone and counts every minute as focused.
+**Changes the frontend needs:** send `time`/`tz` in `config`; treat `start`, `state` and `end` from the device as the session (instead of running its own timer); drop hearts and the `knob` handler; send `end` with a `scope`; forward ML-Server-Pomo lines as `focus` instead of sending camera drifts. With no laptop connected the device runs sessions alone and counts every minute as focused.

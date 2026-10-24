@@ -5,6 +5,7 @@
 #include <string.h>
 
 #include "app/session_core.hpp"
+#include "utilities.h"
 
 static int failures = 0;
 
@@ -13,6 +14,15 @@ static int failures = 0;
         const long a_ = (long)(actual), e_ = (long)(expected);                            \
         if (a_ != e_) {                                                                   \
             printf("  FAIL %s:%d  %s == %ld, expected %ld\n", __FILE__, __LINE__, #actual, a_, e_); \
+            failures++;                                                                   \
+        }                                                                                 \
+    } while (0)
+
+#define CHECK_STR(actual, expected)                                                       \
+    do {                                                                                  \
+        if (strcmp((actual), (expected)) != 0) {                                          \
+            printf("  FAIL %s:%d  %s == \"%s\", expected \"%s\"\n", __FILE__, __LINE__,   \
+                   #actual, (actual), (expected));                                        \
             failures++;                                                                   \
         }                                                                                 \
     } while (0)
@@ -186,6 +196,197 @@ static void test_end_early()
     CHECK_EQ(quick.xp(), 42);
 }
 
+// Send a focus tick every half second for `seconds`, like ML-Server-Pomo at 2 Hz
+static void focus_for(SessionCore &s, int seconds, CameraState state, const char *label = "Camera")
+{
+    SessionEvent e;
+    for (int i = 0; i < seconds; i++) {
+        s.setFocus(state, label);
+        s.setFocus(state, label);
+        s.tick(&e);
+    }
+}
+
+static SessionSnapshot snap_of(const SessionCore &s)
+{
+    SessionSnapshot snap;
+    s.snapshot(&snap);
+    return snap;
+}
+
+static void test_camera_drift()
+{
+    puts("camera drift from focus ticks");
+    SessionCore s;
+    s.start(25, 5);
+    focus_for(s, 9, CameraState::UNFOCUSED, "Looking away");
+    CHECK_EQ(snap_of(s).drifting, false);       // 9 s is not sustained yet
+    focus_for(s, 1, CameraState::DRIFTING, "Looking away");
+    SessionSnapshot snap = snap_of(s);
+    CHECK_EQ(snap.drifting, true);              // drifting counts the same as unfocused
+    CHECK_EQ((int)snap.drift_kind, (int)DriftKind::CAMERA);
+    CHECK_STR(snap.drift_label, "Looking away");
+    CHECK_EQ(snap.multiplier, 1);
+
+    focus_for(s, 2, CameraState::UNFOCUSED, "Away");
+    CHECK_STR(snap_of(s).drift_label, "Away");  // label follows the reason
+
+    focus_for(s, 2, CameraState::FOCUSED);
+    CHECK_EQ(snap_of(s).drifting, true);        // 2 s focused is not enough
+    focus_for(s, 1, CameraState::FOCUSED);
+    snap = snap_of(s);
+    CHECK_EQ(snap.drifting, false);
+    CHECK_EQ((int)snap.drift_kind, (int)DriftKind::NONE);
+    CHECK_STR(snap.drift_label, "");
+
+    // A focused tick in the middle breaks the run
+    focus_for(s, 8, CameraState::UNFOCUSED);
+    focus_for(s, 1, CameraState::FOCUSED);
+    focus_for(s, 8, CameraState::UNFOCUSED);
+    CHECK_EQ(snap_of(s).drifting, false);
+
+    // Calibrating neither starts nor ends a drift
+    focus_for(s, 20, CameraState::CALIBRATING);
+    CHECK_EQ(snap_of(s).drifting, false);
+    focus_for(s, 10, CameraState::UNFOCUSED);
+    CHECK_EQ(snap_of(s).drifting, true);
+    focus_for(s, 20, CameraState::CALIBRATING);
+    CHECK_EQ(snap_of(s).drifting, true);
+}
+
+static void test_camera_timeout_and_phases()
+{
+    puts("camera drift: server stops, outside study");
+    SessionCore s;
+    s.start(15, 3);
+    focus_for(s, 10, CameraState::UNFOCUSED);
+    CHECK_EQ(snap_of(s).drifting, true);
+    run(s, 4);
+    CHECK_EQ(snap_of(s).drifting, true);        // 4 s of silence: still drifting
+    run(s, 1);
+    CHECK_EQ(snap_of(s).drifting, false);       // 5 s: the server stopped
+
+    // A drift at the end of study does not carry into the break, and ticks there are ignored
+    focus_for(s, 10, CameraState::UNFOCUSED);
+    CHECK_EQ(snap_of(s).drifting, true);
+    run(s, 15 * 60);
+    CHECK_EQ((int)s.phase(), (int)Phase::BREAK);
+    CHECK_EQ(snap_of(s).drifting, false);
+    focus_for(s, 30, CameraState::UNFOCUSED);
+    CHECK_EQ(snap_of(s).drifting, false);
+
+    SessionCore idle;
+    focus_for(idle, 30, CameraState::UNFOCUSED);
+    CHECK_EQ(snap_of(idle).drifting, false);
+}
+
+static void test_drift_sources()
+{
+    puts("laptop and camera drift together");
+    SessionCore s;
+    s.start(25, 5);
+    s.setDrift(true, "Idle", DriftKind::IDLE);
+    SessionSnapshot snap = snap_of(s);
+    CHECK_EQ((int)snap.drift_kind, (int)DriftKind::IDLE);
+    CHECK_STR(snap.drift_label, "Idle");
+
+    focus_for(s, 10, CameraState::UNFOCUSED, "Away");
+    snap = snap_of(s);
+    CHECK_EQ((int)snap.drift_kind, (int)DriftKind::IDLE);   // the laptop's drift is shown
+    CHECK_EQ(snap.drift_s, 10);
+
+    s.setDrift(false, nullptr);
+    snap = snap_of(s);
+    CHECK_EQ(snap.drifting, true);              // the camera still says drifting
+    CHECK_EQ((int)snap.drift_kind, (int)DriftKind::CAMERA);
+    CHECK_STR(snap.drift_label, "Away");
+    CHECK_EQ(snap.drift_s, 10);                 // still the same drift
+
+    focus_for(s, 3, CameraState::FOCUSED);
+    snap = snap_of(s);
+    CHECK_EQ(snap.drifting, false);
+    CHECK_EQ(snap.drift_s, 0);
+
+    // The camera going back to focus does not clear the laptop's drift
+    s.setDrift(true, "YouTube");
+    focus_for(s, 5, CameraState::FOCUSED);
+    snap = snap_of(s);
+    CHECK_EQ((int)snap.drift_kind, (int)DriftKind::SITE);
+    CHECK_STR(snap.drift_label, "YouTube");
+}
+
+static void test_end_break_and_set()
+{
+    puts("end break, end session");
+    SessionEvent e = {};
+    {
+        SessionCore s;
+        CHECK_EQ(s.endBreak(&e), false);        // idle
+        CHECK_EQ(s.endSet(&e), false);
+        s.start(25, 5);
+        CHECK_EQ(s.endBreak(&e), false);        // studying
+        run(s, 25 * 60);
+        run(s, 60);
+        CHECK_EQ(s.endBreak(&e), true);         // break -> session 2 now
+        CHECK_EQ((int)e.type, (int)SessionEventType::BREAK_ENDED);
+        SessionSnapshot snap = snap_of(s);
+        CHECK_EQ((int)snap.phase, (int)Phase::STUDY);
+        CHECK_EQ(snap.session_index, 2);
+        CHECK_EQ(snap.remaining_s, 25 * 60);
+    }
+    {
+        SessionCore s;
+        s.start(15, 3);
+        for (int i = 0; i < 4; i++) {
+            run(s, 15 * 60);
+            if (i < 3) s.endBreak(&e);
+        }
+        CHECK_EQ((int)s.phase(), (int)Phase::LONG_REST);
+        CHECK_EQ(s.endBreak(&e), true);         // long rest -> idle
+        CHECK_EQ((int)e.type, (int)SessionEventType::SET_ENDED);
+        CHECK_EQ((int)s.phase(), (int)Phase::IDLE);
+        CHECK_EQ(snap_of(s).session_index, 1);
+        CHECK_EQ(s.xp(), 60);
+    }
+    {
+        SessionCore s;
+        s.start(15, 3);
+        run(s, 15 * 60);
+        const int xp = s.xp();
+        CHECK_EQ(s.endSet(&e), true);           // during the break: idle, nothing scored
+        CHECK_EQ((int)e.type, (int)SessionEventType::SET_ENDED);
+        CHECK_EQ((int)s.phase(), (int)Phase::IDLE);
+        CHECK_EQ(s.xp(), xp);
+    }
+    {
+        SessionCore s;
+        s.start(25, 5);
+        run(s, 5 * 60);
+        CHECK_EQ(s.endSet(&e), true);           // while studying: scored, then idle
+        CHECK_EQ((int)e.type, (int)SessionEventType::ENDED_EARLY);
+        CHECK_EQ(e.result.elapsed_min, 5);
+        CHECK_EQ((int)s.phase(), (int)Phase::IDLE);
+    }
+}
+
+static void test_copy_utf8()
+{
+    puts("UTF-8 safe copy");
+    char buf[6];
+    copy_utf8(buf, sizeof(buf), "Mochi");
+    CHECK_STR(buf, "Mochi");
+    copy_utf8(buf, sizeof(buf), "Mochiko");
+    CHECK_STR(buf, "Mochi");
+    copy_utf8(buf, sizeof(buf), "Zo\xC3\xAB!");                 // fits exactly: 5 bytes
+    CHECK_STR(buf, "Zo\xC3\xAB!");
+    copy_utf8(buf, sizeof(buf), "Zoey\xC3\xAB");                // the 2-byte letter would be cut
+    CHECK_STR(buf, "Zoey");
+    copy_utf8(buf, sizeof(buf), "\xE2\x9C\x93\xE2\x9C\x93");    // two 3-byte checkmarks
+    CHECK_STR(buf, "\xE2\x9C\x93");
+    copy_utf8(buf, sizeof(buf), nullptr);
+    CHECK_STR(buf, "");
+}
+
 int main()
 {
     test_break_ranges();
@@ -195,6 +396,11 @@ int main()
     test_penalty_floor();
     test_set_and_long_rest();
     test_end_early();
+    test_camera_drift();
+    test_camera_timeout_and_phases();
+    test_drift_sources();
+    test_end_break_and_set();
+    test_copy_utf8();
     if (failures) {
         printf("%d check(s) failed\n", failures);
         return 1;

@@ -13,12 +13,13 @@
 #include <app/session.hpp>
 #include <ui/app_state.hpp>
 #include <ui/pet/pet_data.h>
+#include <utilities.h>
 
 #include "bt_spp.hpp"
 
 static const char *TAG = "link";
 
-#define POMO_FW_VERSION "0.8"
+#define POMO_FW_VERSION "0.9"
 
 static const uart_port_t LINK_UART = UART_NUM_0;  // the USB serial port, shared with logs
 static const int UART_RX_BUF = 1024;
@@ -57,14 +58,6 @@ void link_send(const char *json)
     free(line);
 }
 
-void link_send_knob(const char *ev)
-{
-    cJSON *o = cJSON_CreateObject();
-    cJSON_AddStringToObject(o, "t", "knob");
-    cJSON_AddStringToObject(o, "ev", ev);
-    send_json(o);
-}
-
 void link_send_circle()
 {
     int count = 0;
@@ -92,6 +85,16 @@ static const char *phase_name(Phase p)
     }
 }
 
+static const char *drift_kind_name(DriftKind k)
+{
+    switch (k) {
+        case DriftKind::SITE: return "site";
+        case DriftKind::IDLE: return "idle";
+        case DriftKind::CAMERA: return "camera";
+        default: return "";
+    }
+}
+
 void link_send_hello()
 {
     cJSON *o = cJSON_CreateObject();
@@ -110,6 +113,7 @@ static void send_state(const SessionSnapshot &s)
     cJSON_AddStringToObject(o, "focus", s.drifting ? "drift" : "focused");
     cJSON_AddNumberToObject(o, "session", s.session_index);
     cJSON_AddStringToObject(o, "drift", s.drift_label);
+    cJSON_AddStringToObject(o, "drift_kind", drift_kind_name(s.drift_kind));
     cJSON_AddNumberToObject(o, "drift_s", s.drift_s);
     cJSON_AddNumberToObject(o, "mult", s.multiplier);
     cJSON_AddNumberToObject(o, "xp", s.xp);
@@ -163,7 +167,7 @@ static void handle_config(const cJSON *msg)
 
     const cJSON *user = cJSON_GetObjectItemCaseSensitive(msg, "user");
     if (cJSON_IsString(user)) {
-        strncpy(cmd.user, user->valuestring, sizeof(cmd.user) - 1);
+        copy_utf8(cmd.user, sizeof(cmd.user), user->valuestring);
         cmd.has_user = true;
     }
 
@@ -171,7 +175,7 @@ static void handle_config(const cJSON *msg)
     if (cJSON_IsObject(pet)) {
         const cJSON *name = cJSON_GetObjectItemCaseSensitive(pet, "name");
         if (cJSON_IsString(name) && name->valuestring[0]) {
-            strncpy(cmd.pet_name, name->valuestring, sizeof(cmd.pet_name) - 1);
+            copy_utf8(cmd.pet_name, sizeof(cmd.pet_name), name->valuestring);
             cmd.has_pet_name = true;
         }
         const cJSON *body = cJSON_GetObjectItemCaseSensitive(pet, "body");
@@ -196,6 +200,29 @@ static void handle_config(const cJSON *msg)
     AppState::instance().post(cmd);
 }
 
+// Camera focus tick from ML-Server-Pomo, forwarded by the laptop
+static void handle_focus(const cJSON *msg)
+{
+    static const char *const STATES[] = {"calibrating", "focused", "drifting", "unfocused"};
+    static const char *const REASONS[] = {"absent", "drowsy", "looking_away", "slouching", "bad_window"};
+    static const char *const LABELS[] = {"Away", "Drowsy", "Looking away", "Slouching", "Off task"};
+
+    const cJSON *state = cJSON_GetObjectItemCaseSensitive(msg, "state");
+    const int s = cJSON_IsString(state) ? lookup(state->valuestring, STATES, 4) : -1;
+    if (s < 0) return;
+    const cJSON *reason = cJSON_GetObjectItemCaseSensitive(msg, "reason");
+    const int r = cJSON_IsString(reason) ? lookup(reason->valuestring, REASONS, 5) : -1;
+    Session::instance().setFocus((CameraState)s, r >= 0 ? LABELS[r] : "Camera");
+}
+
+static void handle_end(const cJSON *msg)
+{
+    const cJSON *scope = cJSON_GetObjectItemCaseSensitive(msg, "scope");
+    if (!cJSON_IsString(scope)) return; // an old dashboard's end report: the device scores itself
+    if (strcmp(scope->valuestring, "break") == 0) Session::instance().endBreak();
+    else if (strcmp(scope->valuestring, "session") == 0) Session::instance().endSet();
+}
+
 static void handle_line(const char *line)
 {
     cJSON *msg = cJSON_Parse(line);
@@ -209,8 +236,11 @@ static void handle_line(const char *line)
     if (strcmp(t->valuestring, "drift") == 0) {
         const cJSON *active = cJSON_GetObjectItemCaseSensitive(msg, "active");
         const cJSON *label = cJSON_GetObjectItemCaseSensitive(msg, "label");
+        const cJSON *kind = cJSON_GetObjectItemCaseSensitive(msg, "kind");
         const bool on = cJSON_IsTrue(active);
-        Session::instance().setDrift(on, cJSON_IsString(label) ? label->valuestring : "Drift");
+        const bool idle = cJSON_IsString(kind) && strcmp(kind->valuestring, "idle") == 0;
+        Session::instance().setDrift(on, cJSON_IsString(label) ? label->valuestring : "Drift",
+                                     idle ? DriftKind::IDLE : DriftKind::SITE);
         ESP_LOGI(TAG, "drift %s", on ? "started" : "ended");
     } else if (strcmp(t->valuestring, "config") == 0) {
         handle_config(msg);
@@ -221,12 +251,16 @@ static void handle_line(const char *line)
         const int s = cJSON_IsNumber(study) ? study->valueint : 25;
         const int b = cJSON_IsNumber(brk) ? brk->valueint : SessionCore::breakMin(SessionCore::snapStudy(s));
         if (!Session::instance().start(s, b)) ESP_LOGI(TAG, "start ignored: a session is running");
+    } else if (strcmp(t->valuestring, "focus") == 0) {
+        handle_focus(msg);
+    } else if (strcmp(t->valuestring, "end") == 0) {
+        handle_end(msg);
     } else if (strcmp(t->valuestring, "peek") == 0) {
         AppState::UiCommand cmd = {};
         cmd.type = AppState::UiCommand::PEEK;
         AppState::instance().post(cmd);
     }
-    // Anything else (end, break, finished, ...) is ignored: the device runs the session
+    // Anything else (break, finished, ...) is ignored: the device runs the session
 
     AppState::UiCommand seen = {};
     seen.type = AppState::UiCommand::LINK_SEEN;
