@@ -35,13 +35,14 @@ idf_component_register(
 
     "ui/screens/boot_screen.cpp"
     "ui/screens/home_screen.cpp"
-    "ui/screens/wind_screen.cpp"
+    "ui/screens/study_screen.cpp"
     "ui/screens/focus_screen.cpp"
     "ui/screens/intermission_screen.cpp"
-    "ui/screens/menu_screen.cpp"
-    "ui/screens/workshop_screen.cpp"
     "ui/screens/circle_screen.cpp"
-    "ui/screens/timer_settings_screen.cpp"
+    "ui/screens/pet_screen.cpp"
+    "ui/screens/status_screen.cpp"
+    "ui/screens/wardrobe_screen.cpp"
+    "ui/screens/playground_screen.cpp"
     "ui/screens/touch_test_screen.cpp"
 
     INCLUDE_DIRS 

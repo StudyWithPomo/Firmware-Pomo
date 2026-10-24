@@ -174,52 +174,47 @@ int main(int argc, char **argv)
     pump(100);
     shot("01_home_circle", "01 Home, with Ava and Dev nearby");
     focus_next();
-    shot("01_home_circle_focus", "01 Home, knob on the circle card");
+    shot("01_home_circle_focus", "01 Home, knob on the Study tile");
+    state.petted();
+    pump(50);
+    shot("01_home_petted", "01 Home, pet tapped");
+    pump(2100);
 
     nav_reset(ScreenID::BOOT);
     click_focused(); // Yes, wind it
-    shot("02_wind", "02 Wind the timer (25 / 5)");
+    shot("02_study", "02 Study (25 / 5), empty log");
     click_focused(); // grab Study
     send_key(LV_KEY_RIGHT);
-    shot("02_wind_45", "02 Wind, Study grabbed and turned to 45 min (break range follows)");
+    shot("02_study_45", "02 Study, length grabbed and turned to 45 min");
     send_key(LV_KEY_LEFT);
     click_focused(); // let go
-    focus_next();
-    click_focused(); // grab Break
-    send_key(LV_KEY_RIGHT);
-    shot("02_wind_break", "02 Wind, Break grabbed and turned to 6");
-    send_key(LV_KEY_LEFT);
-    click_focused();
-    focus_next();
-    shot("02_wind_start", "02 Wind, knob on Start");
 
     nav_reset(ScreenID::HOME);
-    nav_go(ScreenID::MENU);
-    shot("06_menu", "06 Menu");
+    nav_go(ScreenID::PET);
+    shot("06_pet", "Pet hub");
 
-    nav_go(ScreenID::WORKSHOP);
+    nav_go(ScreenID::STATUS);
+    shot("06_status", "Pet status");
+    Navigator::instance().back();
+    pump(50);
+
+    nav_go(ScreenID::PLAYGROUND);
+    shot("06_playground", "Playground (placeholder)");
+    Navigator::instance().back();
+    pump(50);
+
+    nav_go(ScreenID::WARDROBE);
     state.setPet(PET_BODY_CAT, PET_FACE_MONOCLE, PET_FINISH_COPPER);
     pump(50);
-    shot("07_workshop", "07 Workshop (copper cat with monocle)");
+    shot("07_wardrobe", "07 Wardrobe (copper cat with monocle)");
     click_focused(); // enter the Body row
-    shot("07_workshop_edit", "07 Workshop, editing the Body row");
+    shot("07_wardrobe_edit", "07 Wardrobe, editing the Body row");
     click_focused();
     state.setPet(PET_BODY_BOT, PET_FACE_PLAIN, PET_FINISH_BRASS);
-    focus_next();
-    focus_next();
-    focus_next();
-    shot("07_workshop_back", "07 Workshop, knob on Back");
 
     nav_reset(ScreenID::HOME);
     nav_go(ScreenID::CIRCLE);
     shot("08_circle", "Study circle");
-
-    nav_reset(ScreenID::HOME);
-    nav_go(ScreenID::TIMER_SETTINGS);
-    shot("09_timer_settings", "Timer settings");
-    click_focused();
-    shot("09_timer_settings_edit", "Timer settings, Study grabbed");
-    click_focused();
 
     // A real session: Begin on Home
     nav_reset(ScreenID::HOME);
@@ -252,6 +247,12 @@ int main(int argc, char **argv)
     advance_seconds(snap.remaining_s);
     advance_seconds(48);
     shot("05_intermission", "05 Intermission");
+
+    nav_reset(ScreenID::HOME);
+    nav_go(ScreenID::STUDY);
+    shot("02_study_log", "02 Study, after one session");
+    nav_go(ScreenID::STATUS);
+    shot("06_status_log", "Pet status, after a session");
 
     Session::instance().setXp(7200); // Lv 15: goggles, bow tie, top hat
     nav_reset(ScreenID::HOME);

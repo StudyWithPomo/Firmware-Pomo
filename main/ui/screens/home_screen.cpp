@@ -1,5 +1,5 @@
-// 01 Home: pet name + level, Menu chip, the pet in its porthole, the study circle card and
-// a Begin button. The knob cycles Begin -> Circle -> Menu.
+// 01 Home: pet name + level and XP, the pet in its porthole (tap to pet), a big Start and
+// tiles for Study, Pet and Circle. The knob cycles Start -> Study -> Pet -> Circle.
 
 #include <ui/screens.hpp>
 #include <ui/navigator.hpp>
@@ -11,91 +11,140 @@
 
 using namespace theme;
 
+static lv_obj_t *s_porthole;
+
 static void update_title(lv_observer_t *observer, lv_subject_t *subject)
 {
-    lv_obj_t *label = lv_observer_get_target_obj(observer);
     AppState &state = AppState::instance();
-    lv_label_set_text_fmt(label, "%s · Lv %d", lv_subject_get_string(&state.pet_name),
+    lv_label_set_text_fmt(lv_observer_get_target_obj(observer), "%s · Lv %d", lv_subject_get_string(&state.pet_name),
                           (int)lv_subject_get_int(&state.level));
 }
 
-static void update_multiplier(lv_observer_t *observer, lv_subject_t *subject)
+static void update_xp(lv_observer_t *observer, lv_subject_t *subject)
 {
-    lv_label_set_text_fmt(lv_observer_get_target_obj(observer), "%d× XP", (int)lv_subject_get_int(subject));
+    lv_label_set_text_fmt(lv_observer_get_target_obj(observer), "%d XP", (int)lv_subject_get_int(subject));
 }
 
-static void update_friends(lv_observer_t *observer, lv_subject_t *subject)
-{
-    const char *names = lv_subject_get_string(subject);
-    lv_label_set_text(lv_observer_get_target_obj(observer), names[0] ? names : "No one nearby");
-}
-
-static void update_begin_detail(lv_observer_t *observer, lv_subject_t *subject)
+static void update_lengths(lv_observer_t *observer, lv_subject_t *subject)
 {
     AppState &state = AppState::instance();
     lv_label_set_text_fmt(lv_observer_get_target_obj(observer), "%d / %d",
                           (int)lv_subject_get_int(&state.study_min), (int)lv_subject_get_int(&state.break_min));
 }
 
-static void on_begin(lv_event_t *e) { AppState::instance().startSession(); }
+static void update_today(lv_observer_t *observer, lv_subject_t *subject)
+{
+    AppState &state = AppState::instance();
+    const int today = state.sessionsToday();
+    lv_obj_t *label = lv_observer_get_target_obj(observer);
+    if (state.today() == 0) lv_label_set_text(label, "Lengths, log");
+    else lv_label_set_text_fmt(label, "%d today", today);
+}
+
+static void update_mood(lv_observer_t *observer, lv_subject_t *subject)
+{
+    pet_view_set_mood(lv_observer_get_target_obj(observer), (PetMood)lv_subject_get_int(subject));
+}
+
+static void update_mood_name(lv_observer_t *observer, lv_subject_t *subject)
+{
+    lv_label_set_text(lv_observer_get_target_obj(observer), pet_mood_name(lv_subject_get_int(subject)));
+}
+
+static void update_near(lv_observer_t *observer, lv_subject_t *subject)
+{
+    int count = 0;
+    AppState::instance().friends(&count);
+    lv_obj_t *label = lv_observer_get_target_obj(observer);
+    if (count == 0) lv_label_set_text(label, "Solo");
+    else lv_label_set_text_fmt(label, "%d near · %d×", count, (int)lv_subject_get_int(&AppState::instance().base_multiplier));
+}
+
+static void on_start(lv_event_t *e) { AppState::instance().startSession(); }
+
+static void on_pet_tap(lv_event_t *e)
+{
+    AppState::instance().petted();
+    wiggle(s_porthole);
+}
 
 static void go(lv_event_t *e)
 {
     Navigator::instance().navigate((ScreenID)(intptr_t)lv_event_get_user_data(e));
 }
 
+static void on_delete(lv_event_t *e) { s_porthole = nullptr; }
+
+// Outlined tile: name over a detail line. Returns the detail label.
+static lv_obj_t *tile(lv_obj_t *parent, lv_group_t *group, const char *name, ScreenID to)
+{
+    lv_obj_t *t = column(parent, 1);
+    lv_obj_set_flex_grow(t, 1);
+    lv_obj_set_height(t, 42);
+    lv_obj_set_flex_align(t, LV_FLEX_ALIGN_CENTER, LV_FLEX_ALIGN_CENTER, LV_FLEX_ALIGN_CENTER);
+    lv_obj_set_style_border_width(t, 1, 0);
+    lv_obj_set_style_border_color(t, c(BRASS), 0);
+    label(t, name, &font_fell_16);
+    lv_obj_t *detail = label(t, "", &font_caslon_12, MUTED);
+    focusable(t, group);
+    lv_obj_set_ext_click_area(t, 3); // tiles sit 8 px apart
+    lv_obj_add_event_cb(t, go, LV_EVENT_CLICKED, (void *)(intptr_t)to);
+    return detail;
+}
+
 void screen_home(lv_obj_t *parent, lv_group_t *group)
 {
     AppState &state = AppState::instance();
     lv_obj_t *content = frame(parent);
+    lv_obj_add_event_cb(content, on_delete, LV_EVENT_DELETE, nullptr);
 
-    // Top: "Mochi · Lv 3" and the Menu chip
+    // Top: "Mochi · Lv 3" and XP
     lv_obj_t *top = row(content);
     lv_obj_set_width(top, LV_PCT(100));
     lv_obj_t *title = label(top, "", &font_fell_14);
     lv_subject_add_observer_obj(&state.pet_name, update_title, title, nullptr);
     lv_subject_add_observer_obj(&state.level, update_title, title, nullptr);
+    lv_obj_t *xp = label(top, "", &font_plex_12);
+    lv_subject_add_observer_obj(&state.xp, update_xp, xp, nullptr);
 
-    lv_obj_t *menu = chip(top, "Menu", &font_fell_12);
-
-    // Middle: porthole + study circle card
-    lv_obj_t *middle = row(content, LV_FLEX_ALIGN_CENTER, 16);
+    // Middle: porthole + Start
+    lv_obj_t *middle = row(content, LV_FLEX_ALIGN_START, 14);
     lv_obj_set_width(middle, LV_PCT(100));
-    lv_obj_t *port = porthole(middle, 94);
-    pet_view_create(port, 64, PET_MOOD_HAPPY);
+    lv_obj_set_style_pad_all(middle, 4, 0); // room for the focus outline: rows clip their children
+    s_porthole = porthole(middle, 94);
+    lv_obj_t *pet = pet_view_create(s_porthole, 64, PET_MOOD_HAPPY);
+    lv_obj_add_flag(pet, LV_OBJ_FLAG_CLICKABLE);
+    lv_obj_set_ext_click_area(pet, 15); // the whole porthole
+    lv_obj_add_event_cb(pet, on_pet_tap, LV_EVENT_PRESSED, nullptr);
+    lv_subject_add_observer_obj(&state.pet_mood, update_mood, pet, nullptr);
 
-    lv_obj_t *card = column(middle, 2);
-    lv_obj_set_width(card, 100);
-    lv_obj_set_style_border_width(card, 1, 0);
-    lv_obj_set_style_border_color(card, c(BRASS), 0);
-    lv_obj_set_style_pad_ver(card, 6, 0);
-    lv_obj_set_style_pad_hor(card, 8, 0);
-    lv_obj_t *card_title = row(card, LV_FLEX_ALIGN_START);
-    lv_obj_t *card_ptr = pointer(card_title, &font_fell_12);
-    label(card_title, "Study circle", &font_fell_12);
-    lv_obj_t *mult = label(card, "", &font_fell_25, BRASS_LIGHT);
-    lv_subject_add_observer_obj(&state.multiplier, update_multiplier, mult, nullptr);
-    lv_obj_t *friends = label(card, "", &font_caslon_12, PARCHMENT);
-    lv_obj_set_width(friends, LV_PCT(100));
-    lv_label_set_long_mode(friends, LV_LABEL_LONG_MODE_DOTS);
-    lv_subject_add_observer_obj(&state.circle_names, update_friends, friends, nullptr);
+    lv_obj_t *start = column(middle, 2);
+    lv_obj_set_flex_grow(start, 1);
+    lv_obj_set_height(start, 70);
+    lv_obj_set_flex_align(start, LV_FLEX_ALIGN_CENTER, LV_FLEX_ALIGN_CENTER, LV_FLEX_ALIGN_CENTER);
+    lv_obj_set_style_border_width(start, 1, 0);
+    lv_obj_set_style_border_color(start, c(BRASS), 0);
+    lv_obj_t *start_title = row(start, LV_FLEX_ALIGN_START);
+    lv_obj_t *start_ptr = pointer(start_title, &font_fell_25);
+    label(start_title, "Start", &font_fell_25);
+    lv_obj_t *lengths = label(start, "", &font_plex_12);
+    lv_subject_add_observer_obj(&state.study_min, update_lengths, lengths, nullptr);
+    lv_subject_add_observer_obj(&state.break_min, update_lengths, lengths, nullptr);
+    focusable(start, group, start_ptr);
+    lv_obj_add_event_cb(start, on_start, LV_EVENT_CLICKED, nullptr);
 
-    // Bottom: Begin 25 / 5, focused first
-    lv_obj_t *begin = button(content, group, "Begin", &font_fell_16, "", &font_plex_12);
-    lv_obj_set_size(begin, LV_PCT(100), 38);
-    lv_obj_t *begin_detail = lv_obj_get_child(begin, 1);
-    lv_subject_add_observer_obj(&state.study_min, update_begin_detail, begin_detail, nullptr);
-    lv_subject_add_observer_obj(&state.break_min, update_begin_detail, begin_detail, nullptr);
-    lv_obj_add_event_cb(begin, on_begin, LV_EVENT_CLICKED, nullptr);
+    // Bottom: Study, Pet, Circle
+    lv_obj_t *tiles = row(content, LV_FLEX_ALIGN_START, 8);
+    lv_obj_set_width(tiles, LV_PCT(100));
+    lv_obj_set_style_pad_all(tiles, 4, 0);
+    lv_obj_t *study = tile(tiles, group, "Study", ScreenID::STUDY);
+    lv_subject_add_observer_obj(&state.log_version, update_today, study, nullptr);
+    lv_subject_add_observer_obj(&state.time_subject, update_today, study, nullptr);
+    lv_obj_t *pet_detail = tile(tiles, group, "Pet", ScreenID::PET);
+    lv_subject_add_observer_obj(&state.pet_mood, update_mood_name, pet_detail, nullptr);
+    lv_obj_t *circle = tile(tiles, group, "Circle", ScreenID::CIRCLE);
+    lv_subject_add_observer_obj(&state.circle_version, update_near, circle, nullptr);
+    lv_subject_add_observer_obj(&state.base_multiplier, update_near, circle, nullptr);
 
-    // Knob order: Begin -> Circle -> Menu
-    focusable(card, group, card_ptr);
-    lv_obj_add_event_cb(card, go, LV_EVENT_CLICKED, (void *)(intptr_t)ScreenID::CIRCLE);
-    lv_obj_t *menu_ptr = pointer(menu, &font_fell_12);
-    lv_obj_move_to_index(menu_ptr, 0);
-    lv_obj_set_flex_flow(menu, LV_FLEX_FLOW_ROW);
-    focusable(menu, group, menu_ptr);
-    lv_obj_add_event_cb(menu, go, LV_EVENT_CLICKED, (void *)(intptr_t)ScreenID::MENU);
-
-    lv_group_focus_obj(begin);
+    lv_group_focus_obj(start);
 }

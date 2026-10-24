@@ -102,7 +102,27 @@ SessionResult SessionCore::finishStudy()
     }
     r.xp = xp_;
     r.level = levelFor(xp_);
+    r.session_index = index_;
     return r;
+}
+
+void logSession(SessionLog *log, const SessionResult &result, bool completed, int day)
+{
+    log->focused_min += result.focused_min;
+    if (!completed) return;
+    log->sessions++;
+    if (result.session_index >= SessionCore::SESSIONS_PER_SET) log->sets++;
+    if (day == 0) return;
+    if (log->today_day != day) {
+        log->today_day = day;
+        log->today = 0;
+    }
+    log->today++;
+}
+
+int logToday(const SessionLog &log, int day)
+{
+    return day != 0 && log.today_day == day ? log.today : 0;
 }
 
 bool SessionCore::endEarly(SessionEvent *out)

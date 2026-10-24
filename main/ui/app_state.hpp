@@ -69,6 +69,12 @@ public:
     // Laptop link
     lv_subject_t link_connected;    // 1 once the laptop has sent a valid message
 
+    // Study log: bumps whenever log() changes (screens showing "today" also watch time_subject)
+    lv_subject_t log_version;
+
+    // Before the laptop sets the clock the RTC counts from 1970
+    static constexpr long CLOCK_SET_AFTER = 1700000000;
+
     // Start draining the session queues (call once, LVGL lock held, after Session::init)
     void attach();
     // Restore saved progress and settings, then save changes from now on (after attach;
@@ -86,6 +92,7 @@ public:
     void endSessionEarly();
     void peek();                            // light the timer for 5 s
     void shh();                             // the pet hushes for 2 s
+    void petted();                          // outside study, the pet is pleased for 2 s
     void setStudyLength(int study_min);     // resets the break to 1/5 of it
     void setBreakLength(int break_min);
     void setPet(int body, int face, int finish);
@@ -93,6 +100,10 @@ public:
 
     const Friend *friends(int *count) const { *count = friend_count; return friend_list; }
     const SessionResult &lastResult() const { return last_result; }
+    const SessionLog &log() const { return session_log; }
+    // Today as a SessionLog day number, or 0 while the clock isn't set
+    int today() const;
+    int sessionsToday() const { return logToday(session_log, today()); }
 
 private:
     AppState();
@@ -101,6 +112,7 @@ private:
     void handleEvent(const SessionEvent &event);
     void applyCommand(const UiCommand &cmd);
     void refreshMood();
+    void recordSession(const SessionResult &result, bool completed);
     SavedState currentState();
     void scheduleSave();
     void saveNow();
@@ -108,10 +120,13 @@ private:
     Friend friend_list[MAX_FRIENDS] = {};
     int friend_count = 0;
     SessionResult last_result = {};
+    SessionLog session_log = {};
     QueueHandle_t commands = nullptr;
     lv_timer_t *peek_timer = nullptr;
     lv_timer_t *shh_timer = nullptr;
+    lv_timer_t *petted_timer = nullptr;
     lv_timer_t *save_timer = nullptr;
     bool persisting = false;
     bool shh_active = false;
+    bool petted_active = false;
 };

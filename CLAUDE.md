@@ -4,7 +4,7 @@ Firmware for **Study Buddy** (SBU Hacks): a steampunk clockwork pet on an ESP32 
 
 Specs, in order of authority:
 1. The user's words in the session.
-2. The build brief, [docs/STUDY_BUDDY_FIRMWARE.md](docs/STUDY_BUDDY_FIRMWARE.md). Its pin map and some screen details are out of date (see below), but its rules hold: no hearts, the device is the source of truth, ask before changing pins, the partition table, or the LVGL/IDF versions.
+2. The build brief, [docs/STUDY_BUDDY_FIRMWARE.md](docs/STUDY_BUDDY_FIRMWARE.md). Its pin map and some screen details are out of date (see below), but its rules hold: no hearts as a stat (health, lives, pet death; floating hearts when you pet the pet are fine, the user asked for them), the device is the source of truth, ask before changing pins, the partition table, or the LVGL/IDF versions.
 3. The design canvas "Study Buddy UI", board "Device screens · steampunk". It is drawn at 2×: halve every size.
 4. Frontend-Pomo `pet.js` (pet data), and its README and `schema/pomo-device.schema.json` (protocol).
 
@@ -15,6 +15,7 @@ Specs, in order of authority:
   - `idf.py -p COM5 flash monitor`. The USB serial port is COM5 (CP210x).
   - The board's auto-reset into download mode doesn't work: **hold BOOT** while it says `Connecting...`. Exit the monitor with **Ctrl+]**.
 - **Builds:**
+  - **The user runs `idf.py build` and flashing themselves.** Don't run them; say when the code is ready. Rules tests and the PC preview (own build folder) are fine to run.
   - **Never run two builds at once** in the same `build/` folder (the user often runs one in their own terminal). They corrupt each other.
   - Any `sdkconfig` change rebuilds all ~1,568 ESP-IDF files (3–5 min).
   - `sdkconfig` is gitignored and generated from `sdkconfig.defaults`. Delete `sdkconfig` after changing the defaults.
@@ -65,17 +66,22 @@ Display and touch share one SPI bus: `display.c` initializes it, `touch.c` joins
 - `app/`:
   - `session_core.*`: pure C++ rules, unit tested.
   - `session.*`: a 1 s `esp_timer`, a mutex, a snapshot queue and event queues (`subscribe()` gives each listener its own).
-  - `storage.*`: NVS namespace `pomo`; only changed keys are written.
+  - `storage.*`: NVS namespace `pomo`; only changed keys are written. Includes the session log (`SessionLog` in `session_core`: sessions, sets, focused minutes, today).
 - `comms/`:
   - `link.*`: JSON lines over UART0, per-transport `LineAssembler`, cJSON.
   - `bt_spp.*`: Bluedroid Classic SPP feeding the same handler.
 - `ui/`:
   - `app_state.*`: all `lv_subject`s. It drains the session queues and a `UiCommand` queue in a 50 ms `lv_timer`, navigates on session events, and autosaves 2 s after a change (XP immediately when a session is scored).
   - `navigator.*`: screen registry, a fresh `lv_group` per screen bound to the encoder, `back()` history, per-screen hold handler, screen swaps deferred with `lv_async_call`.
-  - `theme.*`: colour tokens and builders (frame, porthole, bubble, chip, button, list_row, nixie tubes, lamps, focus styles).
+  - `theme.*`: colour tokens and builders (frame, `header()` with ◂ Back, porthole, bubble, chip, button, list_row, `step_buttons()` −/+, nixie tubes, lamps, `wiggle()`, focus and grabbed styles, `from_knob()`).
   - `pet/`: the `pet_data.h` port of `pet.js`, and a `pet_view` drawn as scaled rectangles in a draw callback.
-  - `fonts/`: IM Fell English SC, Libre Caslon, IBM Plex Mono, generated with lv_font_conv, with ▸ merged from DejaVu Sans. See `fonts/README.md`.
-  - `screens/`: one file per screen.
+  - `fonts/`: IM Fell English SC, Libre Caslon, IBM Plex Mono, generated with lv_font_conv, with ▸ ◂ − merged from DejaVu Sans. See `fonts/README.md`.
+  - `screens/`: one file per screen. Boot, Home (Start + Study/Pet/Circle tiles), Study, Focus, Intermission, Circle, Pet hub, Status, Wardrobe, Playground (placeholder).
+
+**UI conventions (from milestone A):**
+- Every screen but Home and Focus has `header()`'s ◂ Back, added to the group last so it's the knob's last stop. Hold also goes back; Back with no history goes Home.
+- Knob: turn moves, a press on a value row grabs it (group editing, verdigris outline), turning changes it, another press lets go. Touch: a tap only selects a row (`from_knob()` is false), −/+ change it.
+- Rows clip their children, so a focus outline needs ~4 px of padding in the row that holds it (`OVERFLOW_VISIBLE` doesn't help).
 
 **Rules that matter:**
 - **LVGL is not thread-safe.** Only the LVGL task touches LVGL. Other tasks post to queues (`Session`, `AppState::post`). Any LVGL call outside it needs `lvgl_port_lock`.
@@ -105,6 +111,8 @@ Cube OS was imported into this repo, then rebuilt milestone by milestone. The us
 | `283a840` | **Anthony Thillainathan** (teammate) "Milestone 9: protocol schema v2": camera drift from ML-Server-Pomo focus ticks (separate from laptop drift, `drift_kind`), `end` with scope `break`/`session`, `knob` message removed, UTF-8-safe names, fw 0.9, more tests. |
 | `e40860d` M6 | Saved progress and settings in NVS. Tested: survives reset and power cycle. |
 | `4932271` | LVGL task stack raised to 16 KB (the Workshop crashed); `[stack]` boot log. |
+| `5daebea` A | Touch and knob parity: ◂ Back, −/+ buttons, grab rows, Focus Peek/End session buttons, ◂ − glyphs. Tested on hardware. |
+| B | New menu structure: Home tiles, Study screen (replaces Wind, Menu, Timer settings), Pet hub, Status, Wardrobe, Playground placeholder, session log in NVS. Tested on hardware. |
 
 Other notes:
 - A screenshot gallery of every screen was published as a private artifact, "Pomo Screen Preview".
@@ -139,7 +147,7 @@ The user tested the device and asked for these. Decisions already made with the 
 
 Do them in order, one milestone at a time, checking each in the preview first.
 
-- **A: touch and knob parity, navigation** (fix list #1, #2, #4, #5)
+- **A: touch and knob parity, navigation** (fix list #1, #2, #4, #5). **Done.**
   - **Parity:** everything the knob does can be done by tapping, and the reverse.
   - **Back:** an on-screen ◂ Back on every screen except Home and Focus.
   - **Tap targets:** bigger hit areas (`ext_click_area`).
@@ -149,7 +157,7 @@ Do them in order, one milestone at a time, checking each in the preview first.
     - Today a press, or a tap, on Study jumps to Break and there's no way back.
   - **Focus:** visible **Peek** and **End session** buttons, keeping the confirm dialog. Touch is no longer locked during focus, a deliberate change from the brief.
   - **Fonts:** add the ◂ − + glyphs.
-- **B: new menu structure** (#6, #8, #9, #11, #12)
+- **B: new menu structure** (#6, #8, #9, #11, #12). **Done.** On Home and the Pet hub a tap on the pet is a placeholder reaction (love face, wiggle) until D.
   - **Home:** the pet (tap to pet), a big Start, and tiles for **Study**, **Pet** and **Circle**.
   - **Study:** study/break lengths, the always-show-timer toggle, the session log and Start. It replaces Wind, Menu and Timer settings.
   - **Pet hub:**
@@ -161,8 +169,9 @@ Do them in order, one milestone at a time, checking each in the preview first.
   - No auto-start after a break: "Ready for session N of 4?" with **Start next** / **Finish for now**.
   - **Start now** / **End set** buttons during the break.
   - Build on Anthony's end scopes (`endBreak`/`endSet`) and update the rules tests.
+  - **Petting hearts** (user, 2026-10-24): tapping the pet shows little hearts floating up, like the frontend does. Decoration only: no hearts stat.
 - **D: Playground and pet interaction** (#3, #7)
   - **Petting:** tap or drag the pet anywhere it appears to get a reaction (mood change, bounce).
   - **Winding:** in the Playground the knob winds its key and it spins.
   - **Feed it gears:** a little catch animation.
-  - No hearts or stats from play.
+  - No hearts stat or other stats from play (the petting hearts are decoration, from C).

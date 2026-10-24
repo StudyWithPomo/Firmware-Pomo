@@ -369,6 +369,57 @@ static void test_end_break_and_set()
     }
 }
 
+static void test_session_log()
+{
+    puts("session log");
+    SessionLog log = {};
+    SessionResult r = {};
+    r.focused_min = 20;
+    r.session_index = 1;
+    logSession(&log, r, true, 100);
+    CHECK_EQ(log.sessions, 1);
+    CHECK_EQ(log.sets, 0);
+    CHECK_EQ(log.focused_min, 20);
+    CHECK_EQ(logToday(log, 100), 1);
+    CHECK_EQ(logToday(log, 101), 0);            // a new day starts at 0
+    CHECK_EQ(logToday(log, 0), 0);              // clock not set
+
+    r.focused_min = 4;                          // ended early: minutes count, the session doesn't
+    logSession(&log, r, false, 100);
+    CHECK_EQ(log.sessions, 1);
+    CHECK_EQ(log.focused_min, 24);
+    CHECK_EQ(logToday(log, 100), 1);
+
+    r.focused_min = 25;
+    r.session_index = 4;                        // the 4th session finishes the set
+    logSession(&log, r, true, 101);
+    CHECK_EQ(log.sessions, 2);
+    CHECK_EQ(log.sets, 1);
+    CHECK_EQ(logToday(log, 101), 1);            // the next day counts from 1
+    CHECK_EQ(logToday(log, 100), 0);
+
+    logSession(&log, r, true, 0);               // clock not set: totals only
+    CHECK_EQ(log.sessions, 3);
+    CHECK_EQ(log.sets, 2);
+    CHECK_EQ(logToday(log, 101), 1);
+
+    // Through the rules: a full set of four gives a session_index of 1..4
+    SessionCore s;
+    SessionLog full = {};
+    SessionEvent e = {};
+    s.start(15, 3);
+    for (int i = 0; i < 4; i++) {
+        CHECK_EQ(run(s, 15 * 60, &e), (int)SessionEventType::STUDY_ENDED);
+        CHECK_EQ(e.result.session_index, i + 1);
+        logSession(&full, e.result, true, 7);
+        if (i < 3) s.endBreak(&e);
+    }
+    CHECK_EQ(full.sessions, 4);
+    CHECK_EQ(full.sets, 1);
+    CHECK_EQ(full.focused_min, 60);
+    CHECK_EQ(logToday(full, 7), 4);
+}
+
 static void test_copy_utf8()
 {
     puts("UTF-8 safe copy");
@@ -400,6 +451,7 @@ int main()
     test_camera_timeout_and_phases();
     test_drift_sources();
     test_end_break_and_set();
+    test_session_log();
     test_copy_utf8();
     if (failures) {
         printf("%d check(s) failed\n", failures);

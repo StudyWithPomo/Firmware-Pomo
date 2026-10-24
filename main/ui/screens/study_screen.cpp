@@ -1,8 +1,8 @@
-// Timer settings: default study length, break length (within the allowed range) and
-// "Always show timer".
-//   Knob: press a length row to grab it, turn to change it, press again to set. Press
-//         "Always show" to toggle it. Hold goes back.
-//   Touch: − / + on the length rows, tap "Always show" to toggle it, ◂ Back.
+// Study: everything timer-related on one screen. Study length, break length (within the
+// allowed range), "Always show timer", the session log and Start.
+//   Knob: turn moves between the rows, Start and ◂ Back. Press a length row to grab it, turn
+//         to change it, press again to set. Press "Always show" to toggle it. Hold goes back.
+//   Touch: − / + on the length rows, tap "Always show" to toggle it, Start, ◂ Back.
 
 #include <ui/screens.hpp>
 #include <ui/navigator.hpp>
@@ -42,6 +42,24 @@ static void update_always(lv_observer_t *observer, lv_subject_t *subject)
 {
     lv_label_set_text(lv_observer_get_target_obj(observer), lv_subject_get_int(subject) ? "On" : "Off");
 }
+
+static void update_today(lv_observer_t *observer, lv_subject_t *subject)
+{
+    AppState &state = AppState::instance();
+    lv_obj_t *label = lv_observer_get_target_obj(observer);
+    if (state.today() == 0) lv_label_set_text(label, "Today  –  (clock not set)");
+    else lv_label_set_text_fmt(label, "Today  %d session%s", state.sessionsToday(), state.sessionsToday() == 1 ? "" : "s");
+}
+
+static void update_totals(lv_observer_t *observer, lv_subject_t *subject)
+{
+    const SessionLog &log = AppState::instance().log();
+    lv_label_set_text_fmt(lv_observer_get_target_obj(observer), "All time  %d session%s · %d set%s · %dh %02dm focused",
+                          log.sessions, log.sessions == 1 ? "" : "s", log.sets, log.sets == 1 ? "" : "s",
+                          log.focused_min / 60, log.focused_min % 60);
+}
+
+static void on_start(lv_event_t *e) { AppState::instance().startSession(); }
 
 // Re-render a row's value (to add or drop the "< >" edit marks)
 static void refresh(lv_obj_t *r)
@@ -98,6 +116,7 @@ static void on_key(lv_event_t *e)
 static lv_obj_t *setting_row(lv_obj_t *parent, int setting, const char *name, bool steps)
 {
     lv_obj_t *r = list_row(parent, s_group, name, "");
+    lv_obj_set_height(r, 29);
     lv_obj_set_user_data(r, (void *)(intptr_t)setting);
     lv_obj_add_event_cb(r, on_click, LV_EVENT_CLICKED, nullptr);
     lv_obj_add_event_cb(r, on_key, LV_EVENT_KEY, nullptr);
@@ -117,13 +136,13 @@ static void on_group_focus(lv_group_t *group)
     lv_subject_notify(&state.break_min);
 }
 
-void screen_timer_settings(lv_obj_t *parent, lv_group_t *group)
+void screen_study(lv_obj_t *parent, lv_group_t *group)
 {
     AppState &state = AppState::instance();
     s_group = group;
     lv_obj_t *content = frame(parent);
 
-    Header top = header(content, "Timer Settings");
+    Header top = header(content, "Study");
 
     lv_obj_t *rows = column(content);
     lv_obj_set_width(rows, LV_PCT(100));
@@ -134,9 +153,18 @@ void screen_timer_settings(lv_obj_t *parent, lv_group_t *group)
     lv_obj_t *always = setting_row(rows, SET_ALWAYS_SHOW, "Always show timer", false);
     lv_subject_add_observer_obj(&state.always_show_timer, update_always, always, nullptr);
 
-    lv_obj_t *hint = label(content, "Press a row to change it", &font_fell_12, MUTED);
-    lv_obj_set_width(hint, LV_PCT(100));
-    lv_obj_set_style_text_align(hint, LV_TEXT_ALIGN_CENTER, 0);
+    lv_obj_t *log = column(content, 2);
+    lv_obj_set_width(log, LV_PCT(100));
+    lv_obj_set_style_pad_hor(log, 9, 0);
+    lv_obj_t *today = label(log, "", &font_caslon_12, PARCHMENT);
+    lv_subject_add_observer_obj(&state.log_version, update_today, today, nullptr);
+    lv_subject_add_observer_obj(&state.time_subject, update_today, today, nullptr);
+    lv_obj_t *totals = label(log, "", &font_caslon_12, MUTED);
+    lv_subject_add_observer_obj(&state.log_version, update_totals, totals, nullptr);
+
+    lv_obj_t *start = button(content, group, "Start", &font_fell_16);
+    lv_obj_set_size(start, LV_PCT(100), 30);
+    lv_obj_add_event_cb(start, on_start, LV_EVENT_CLICKED, nullptr);
 
     lv_group_add_obj(group, top.back);
     lv_group_set_focus_cb(group, on_group_focus);

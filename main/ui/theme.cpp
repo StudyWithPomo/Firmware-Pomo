@@ -333,6 +333,31 @@ lv_obj_t *step_buttons(lv_obj_t *parent, lv_obj_t *target)
     return r;
 }
 
+static void wiggle_exec(void *obj, int32_t v)
+{
+    lv_obj_set_style_translate_x((lv_obj_t *)obj, v, 0);
+}
+
+static void wiggle_done(lv_anim_t *a)
+{
+    lv_obj_set_style_translate_x((lv_obj_t *)a->var, 0, 0);
+}
+
+void wiggle(lv_obj_t *obj)
+{
+    if (!obj || lv_anim_get(obj, wiggle_exec)) return;
+    lv_anim_t a;
+    lv_anim_init(&a);
+    lv_anim_set_var(&a, obj);
+    lv_anim_set_exec_cb(&a, wiggle_exec);
+    lv_anim_set_values(&a, -4, 4);
+    lv_anim_set_duration(&a, 70);
+    lv_anim_set_reverse_duration(&a, 70);
+    lv_anim_set_repeat_count(&a, 2);
+    lv_anim_set_completed_cb(&a, wiggle_done);
+    lv_anim_start(&a);
+}
+
 void format_mmss(char *buf, size_t size, int seconds)
 {
     if (seconds < 0) seconds = 0;

@@ -122,3 +122,9 @@ void pet_view_set_look(lv_obj_t *view, const PetLook &look)
     pv->look = look;
     lv_obj_invalidate(view);
 }
+
+const char *pet_mood_name(int mood)
+{
+    static const char *const NAMES[PET_MOOD_COUNT] = {"Happy", "Wound up", "Focused", "Annoyed", "Hushed", "Sleepy"};
+    return mood >= 0 && mood < PET_MOOD_COUNT ? NAMES[mood] : "";
+}

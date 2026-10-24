@@ -6,20 +6,21 @@
 
 static const char *TAG = "nav";
 
-// Deep enough for Menu -> Workshop and back; older entries are dropped
+// Deep enough for Home -> Pet -> Wardrobe and back; older entries are dropped
 static const size_t MAX_HISTORY = 8;
 
 Navigator& Navigator::instance() {
     static Navigator inst({
         {ScreenID::BOOT, screen_boot},
         {ScreenID::HOME, screen_home},
-        {ScreenID::WIND, screen_wind},
+        {ScreenID::STUDY, screen_study},
         {ScreenID::FOCUS, screen_focus},
         {ScreenID::INTERMISSION, screen_intermission},
-        {ScreenID::MENU, screen_menu},
-        {ScreenID::WORKSHOP, screen_workshop},
         {ScreenID::CIRCLE, screen_circle},
-        {ScreenID::TIMER_SETTINGS, screen_timer_settings},
+        {ScreenID::PET, screen_pet},
+        {ScreenID::STATUS, screen_status},
+        {ScreenID::WARDROBE, screen_wardrobe},
+        {ScreenID::PLAYGROUND, screen_playground},
     });
     return inst;
 }
@@ -28,13 +29,14 @@ const char *screen_name(ScreenID id) {
     switch (id) {
         case ScreenID::BOOT: return "Boot";
         case ScreenID::HOME: return "Home";
-        case ScreenID::WIND: return "Wind the Timer";
+        case ScreenID::STUDY: return "Study";
         case ScreenID::FOCUS: return "Focus";
         case ScreenID::INTERMISSION: return "Intermission";
-        case ScreenID::MENU: return "Menu";
-        case ScreenID::WORKSHOP: return "Workshop";
         case ScreenID::CIRCLE: return "Study Circle";
-        case ScreenID::TIMER_SETTINGS: return "Timer Settings";
+        case ScreenID::PET: return "Pet";
+        case ScreenID::STATUS: return "Status";
+        case ScreenID::WARDROBE: return "Wardrobe";
+        case ScreenID::PLAYGROUND: return "Playground";
         default: return "?";
     }
 }

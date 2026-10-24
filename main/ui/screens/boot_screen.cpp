@@ -1,5 +1,5 @@
 // 00 Boot: "Study Buddy", day and time, the pet in its porthole, a greeting, and
-// "Ready for a study session?" with Yes, wind it (-> Wind the timer) / Not yet (-> Home).
+// "Ready for a study session?" with Yes, wind it (-> Study) / Not yet (-> Home).
 
 #include <stdio.h>
 #include <string.h>
@@ -15,13 +15,10 @@
 
 using namespace theme;
 
-// Before the laptop sets the clock the RTC counts from 1970
-static const long CLOCK_SET_AFTER = 1700000000;
-
 static bool local_time(struct tm *out)
 {
     const long now = *(long *)lv_subject_get_pointer(&AppState::instance().time_subject);
-    if (now < CLOCK_SET_AFTER) return false;
+    if (now < AppState::CLOCK_SET_AFTER) return false;
     time_t t = (time_t)now;
     localtime_r(&t, out);
     return true;
@@ -60,7 +57,7 @@ static void update_greeting(lv_observer_t *observer, lv_subject_t *subject)
                           lv_subject_get_string(&state.pet_name));
 }
 
-static void on_yes(lv_event_t *e) { Navigator::instance().navigate(ScreenID::WIND); }
+static void on_yes(lv_event_t *e) { Navigator::instance().navigate(ScreenID::STUDY); }
 static void on_not_yet(lv_event_t *e) { Navigator::instance().reset(ScreenID::HOME); }
 
 void screen_boot(lv_obj_t *parent, lv_group_t *group)

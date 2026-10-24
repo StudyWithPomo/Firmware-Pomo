@@ -4,13 +4,14 @@
 enum class ScreenID {
     BOOT,
     HOME,
-    WIND,
+    STUDY,          // lengths, "Always show timer", the session log, Start
     FOCUS,          // includes the PEEK and DRIFT states
     INTERMISSION,
-    MENU,
-    WORKSHOP,
     CIRCLE,
-    TIMER_SETTINGS,
+    PET,            // hub: Status, Playground, Wardrobe
+    STATUS,
+    WARDROBE,
+    PLAYGROUND,
     COUNT
 };
 
@@ -22,13 +23,14 @@ typedef void (*ScreenBuilder)(lv_obj_t *parent, lv_group_t *group);
 
 void screen_boot(lv_obj_t *parent, lv_group_t *group);
 void screen_home(lv_obj_t *parent, lv_group_t *group);
-void screen_wind(lv_obj_t *parent, lv_group_t *group);
+void screen_study(lv_obj_t *parent, lv_group_t *group);
 void screen_focus(lv_obj_t *parent, lv_group_t *group);
 void screen_intermission(lv_obj_t *parent, lv_group_t *group);
-void screen_menu(lv_obj_t *parent, lv_group_t *group);
-void screen_workshop(lv_obj_t *parent, lv_group_t *group);
 void screen_circle(lv_obj_t *parent, lv_group_t *group);
-void screen_timer_settings(lv_obj_t *parent, lv_group_t *group);
+void screen_pet(lv_obj_t *parent, lv_group_t *group);
+void screen_status(lv_obj_t *parent, lv_group_t *group);
+void screen_wardrobe(lv_obj_t *parent, lv_group_t *group);
+void screen_playground(lv_obj_t *parent, lv_group_t *group);
 
 // Touch calibration check (POMO_TOUCH_TEST)
 void screen_touch_test(lv_obj_t *parent);

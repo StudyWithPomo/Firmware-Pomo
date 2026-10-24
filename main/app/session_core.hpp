@@ -27,7 +27,24 @@ struct SessionResult {
     bool penalty;       // under 50% focus
     int xp;             // total XP afterwards
     int level;
+    int session_index;  // which session of the set this was, 1-4
 };
+
+// The study log kept on the device: what the Study and Status screens show.
+// Days are any number that's the same all day and changes at local midnight; 0 = the clock
+// isn't set yet, and then only the all-time totals count.
+struct SessionLog {
+    int sessions;       // study sessions that ran to the end
+    int sets;           // sets of four finished
+    int focused_min;    // focused minutes, including sessions ended early
+    int today_day;      // the day `today` counts
+    int today;          // sessions completed on today_day
+};
+
+// Record a scored study session. `completed`: it ran to the end (not ended early).
+void logSession(SessionLog *log, const SessionResult &result, bool completed, int day);
+// Sessions completed on `day`: 0 if it's another day, or the day is unknown
+int logToday(const SessionLog &log, int day);
 
 struct SessionEvent {
     SessionEventType type;

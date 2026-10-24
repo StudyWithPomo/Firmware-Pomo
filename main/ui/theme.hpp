@@ -111,6 +111,10 @@ lv_obj_t *list_row(lv_obj_t *parent, lv_group_t *group, const char *text,
                    const char *detail = nullptr, const lv_font_t *detail_font = nullptr,
                    uint32_t detail_color = BRASS);
 
+// A short side-to-side shake (the pet being wound or petted). Ignored while one is running.
+// Translating instead of rotating: a rotated porthole would need a full-size layer buffer.
+void wiggle(lv_obj_t *obj);
+
 // ---- Nixie tubes ----
 
 struct NixieSpec {

@@ -1,4 +1,4 @@
-// 07 Workshop: live preview in the porthole and rows for Body (Bot / Cat / Dog),
+// Wardrobe (was the design's 07 Workshop): live preview in the porthole and rows for Body (Bot / Cat / Dog),
 // Face (Plain / Monocle) and Finish (4 swatches). The outlined row is where the knob is;
 // the filled chip is the current choice.
 //   Knob: turn moves between rows (and ◂ Back); press grabs a row, where turning changes the
@@ -57,11 +57,6 @@ static void update_choices(lv_observer_t *observer, lv_subject_t *subject)
             lv_obj_set_style_text_color(text, c(on ? PANEL : BRASS_HI), LV_STATE_USER_2);
         }
     }
-}
-
-static void update_title(lv_observer_t *observer, lv_subject_t *subject)
-{
-    lv_label_set_text_fmt(lv_observer_get_target_obj(observer), "%s's Workshop", lv_subject_get_string(subject));
 }
 
 static void set_hint(bool editing)
@@ -143,17 +138,15 @@ static lv_obj_t *option_row(lv_obj_t *parent, int opt, const char *name)
     return r;
 }
 
-void screen_workshop(lv_obj_t *parent, lv_group_t *group)
+void screen_wardrobe(lv_obj_t *parent, lv_group_t *group)
 {
-    AppState &state = AppState::instance();
     ui = {};
     ui.group = group;
     lv_obj_t *content = frame(parent);
 
     lv_obj_add_event_cb(content, on_delete, LV_EVENT_DELETE, nullptr);
 
-    Header top = header(content, "");
-    lv_subject_add_observer_obj(&state.pet_name, update_title, top.title, nullptr);
+    Header top = header(content, "Wardrobe");
 
     lv_obj_t *middle = row(content, LV_FLEX_ALIGN_START, 6);
     lv_obj_set_width(middle, LV_PCT(100));

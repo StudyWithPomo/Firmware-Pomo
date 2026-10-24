@@ -65,6 +65,7 @@ AppState::AppState() {
     lv_subject_init_int(&drift_seconds, 0);
     lv_subject_init_int(&peek_active, 0);
     lv_subject_init_int(&link_connected, 0);
+    lv_subject_init_int(&log_version, 0);
 }
 
 void AppState::attach() {
@@ -91,6 +92,8 @@ void AppState::loadSaved() {
     lv_subject_set_int(&always_show_timer, s.always_show_timer ? 1 : 0);
     Session::instance().setXp(s.xp < 0 ? 0 : s.xp);
     lv_subject_set_int(&xp, s.xp < 0 ? 0 : s.xp);
+    session_log = s.log;
+    lv_subject_set_int(&log_version, lv_subject_get_int(&log_version) + 1);
 
     // From now on, any change to a saved value is written shortly after
     persisting = true;
@@ -113,6 +116,7 @@ SavedState AppState::currentState() {
     s.study_min = lv_subject_get_int(&study_min);
     s.break_min = lv_subject_get_int(&break_min);
     s.always_show_timer = lv_subject_get_int(&always_show_timer) != 0;
+    s.log = session_log;
     return s;
 }
 
@@ -220,12 +224,14 @@ void AppState::handleEvent(const SessionEvent &event) {
         case SessionEventType::STUDY_ENDED:
             last_result = event.result;
             lv_subject_set_int(&xp, event.result.xp);
+            recordSession(event.result, true);
             saveNow(); // progress is saved the moment a session is scored
             nav.reset(ScreenID::INTERMISSION);
             break;
         case SessionEventType::ENDED_EARLY:
             last_result = event.result;
             lv_subject_set_int(&xp, event.result.xp);
+            recordSession(event.result, false);
             saveNow();
             nav.reset(ScreenID::HOME);
             break;
@@ -233,6 +239,21 @@ void AppState::handleEvent(const SessionEvent &event) {
             nav.reset(ScreenID::HOME);
             break;
     }
+}
+
+void AppState::recordSession(const SessionResult &result, bool completed) {
+    logSession(&session_log, result, completed, today());
+    lv_subject_set_int(&log_version, lv_subject_get_int(&log_version) + 1);
+    ESP_LOGI(TAG, "Log: %d sessions, %d sets, %d focused min, %d today", session_log.sessions,
+             session_log.sets, session_log.focused_min, sessionsToday());
+}
+
+int AppState::today() const {
+    if (current_time_cache < CLOCK_SET_AFTER) return 0;
+    time_t t = (time_t)current_time_cache;
+    struct tm tm;
+    localtime_r(&t, &tm);
+    return (tm.tm_year + 1900) * 1000 + tm.tm_yday + 1; // e.g. 2026297: same all day, never 0
 }
 
 void AppState::refreshMood() {
@@ -247,6 +268,7 @@ void AppState::refreshMood() {
             mood = PET_MOOD_LOVE; // "wound up"
             break;
         default:
+            if (petted_active) mood = PET_MOOD_LOVE;
             break;
     }
     lv_subject_set_int(&pet_mood, mood);
@@ -292,6 +314,21 @@ void AppState::shh() {
     }
     lv_timer_reset(shh_timer);
     lv_timer_resume(shh_timer);
+}
+
+void AppState::petted() {
+    petted_active = true;
+    refreshMood();
+    if (!petted_timer) {
+        petted_timer = lv_timer_create([](lv_timer_t *t) {
+            AppState &s = instance();
+            s.petted_active = false;
+            s.refreshMood();
+            lv_timer_pause(t);
+        }, SHH_MS, nullptr);
+    }
+    lv_timer_reset(petted_timer);
+    lv_timer_resume(petted_timer);
 }
 
 void AppState::setStudyLength(int study) {

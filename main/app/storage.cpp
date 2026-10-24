@@ -55,9 +55,16 @@ void storage_load(SavedState *out)
         get_i32(h, "break", &out->break_min);
         get_i32(h, "always", &always);
         out->always_show_timer = always != 0;
+        get_i32(h, "sessions", &out->log.sessions);
+        get_i32(h, "sets", &out->log.sets);
+        get_i32(h, "focus_min", &out->log.focused_min);
+        get_i32(h, "today_day", &out->log.today_day);
+        get_i32(h, "today", &out->log.today);
         nvs_close(h);
         ESP_LOGI(TAG, "Loaded: %d XP, pet \"%s\" (%d/%d/%d), user \"%s\", %d / %d", out->xp, out->pet_name,
                  out->pet_body, out->pet_face, out->pet_finish, out->user_name, out->study_min, out->break_min);
+        ESP_LOGI(TAG, "Log: %d sessions, %d sets, %d focused min, %d today", out->log.sessions, out->log.sets,
+                 out->log.focused_min, out->log.today);
     } else {
         ESP_LOGI(TAG, "Nothing saved yet, using defaults");
     }
@@ -99,6 +106,11 @@ bool storage_save(const SavedState &st)
     put_i32("study", st.study_min, old.study_min);
     put_i32("break", st.break_min, old.break_min);
     put_i32("always", st.always_show_timer ? 1 : 0, old.always_show_timer ? 1 : 0);
+    put_i32("sessions", st.log.sessions, old.log.sessions);
+    put_i32("sets", st.log.sets, old.log.sets);
+    put_i32("focus_min", st.log.focused_min, old.log.focused_min);
+    put_i32("today_day", st.log.today_day, old.log.today_day);
+    put_i32("today", st.log.today, old.log.today);
 
     if (changed && err == ESP_OK) err = nvs_commit(h);
     nvs_close(h);

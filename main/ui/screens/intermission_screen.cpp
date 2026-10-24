@@ -15,31 +15,7 @@ using namespace theme;
 
 static lv_obj_t *s_porthole;
 
-static void wiggle_exec(void *obj, int32_t v)
-{
-    lv_obj_set_style_translate_x((lv_obj_t *)obj, v, 0);
-}
-
-static void wiggle_done(lv_anim_t *a)
-{
-    lv_obj_set_style_translate_x((lv_obj_t *)a->var, 0, 0);
-}
-
-// Translating instead of rotating: a rotated porthole would need a full-size layer buffer
-static void wind()
-{
-    if (!s_porthole || lv_anim_get(s_porthole, wiggle_exec)) return;
-    lv_anim_t a;
-    lv_anim_init(&a);
-    lv_anim_set_var(&a, s_porthole);
-    lv_anim_set_exec_cb(&a, wiggle_exec);
-    lv_anim_set_values(&a, -4, 4);
-    lv_anim_set_duration(&a, 70);
-    lv_anim_set_reverse_duration(&a, 70);
-    lv_anim_set_repeat_count(&a, 2);
-    lv_anim_set_completed_cb(&a, wiggle_done);
-    lv_anim_start(&a);
-}
+static void wind() { wiggle(s_porthole); }
 
 static void on_input(lv_event_t *e) { wind(); }
 

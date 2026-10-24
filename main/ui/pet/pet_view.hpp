@@ -23,5 +23,8 @@ lv_obj_t *pet_view_create(lv_obj_t *parent, int size, PetMood mood);
 
 void pet_view_set_mood(lv_obj_t *view, PetMood mood);
 
+// "Happy", "Wound up", ... for showing the mood in words
+const char *pet_mood_name(int mood);
+
 // Show a fixed look instead of following AppState (previews, pet sheets)
 void pet_view_set_look(lv_obj_t *view, const PetLook &look);
