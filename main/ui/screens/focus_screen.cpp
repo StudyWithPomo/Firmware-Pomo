@@ -191,11 +191,17 @@ static lv_obj_t *view(lv_obj_t *content)
     return v;
 }
 
+static void update_title(lv_observer_t *observer, lv_subject_t *subject)
+{
+    lv_label_set_text(lv_observer_get_target_obj(observer), lv_subject_get_int(subject) ? "In Session · Test" : "In Session");
+}
+
 static void header(lv_obj_t *v)
 {
     lv_obj_t *top = row(v);
     lv_obj_set_width(top, LV_PCT(100));
-    label(top, "In Session", &font_fell_14);
+    lv_obj_t *title = label(top, "", &font_fell_14);
+    lv_subject_add_observer_obj(&AppState::instance().session_test, update_title, title, nullptr);
     lv_obj_t *badge = chip(top, "", &font_fell_14, true);
     lv_subject_add_observer_obj(&AppState::instance().multiplier, update_badge, badge, nullptr);
 }

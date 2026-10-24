@@ -17,7 +17,7 @@ public:
 
     void init();
 
-    bool start(int study_min, int break_min);
+    bool start(int study_min, int break_min, bool test = false);
     void endEarly();
     void endBreak();    // break -> next study session, long rest -> idle
     void endSet();      // whole set -> idle (scored first if studying)

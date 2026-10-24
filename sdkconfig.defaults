@@ -33,3 +33,15 @@ CONFIG_LV_USE_DEMO_WIDGETS=n
 # LVGL allocates from the system heap instead of a fixed private pool: the Focus screen alone
 # needs ~36 KB of objects, and a static pool would also take DRAM away from BT and Wi-Fi
 CONFIG_LV_USE_CLIB_MALLOC=y
+
+# Freeze checks: a stuck UI reboots with an explanation instead of freezing silently
+# - LVGL asserts abort (main/lvgl_hooks/pomo_lv_assert.h) instead of spinning forever
+# - LVGL warnings, like a failed allocation, go to the serial log
+# - the task watchdog panics when a task hogs a CPU for 5 s (it only printed before)
+# - on any panic, a core dump of every task goes to the serial monitor, which decodes it
+CONFIG_LV_ASSERT_HANDLER_INCLUDE="pomo_lv_assert.h"
+CONFIG_LV_USE_LOG=y
+CONFIG_LV_LOG_LEVEL_WARN=y
+CONFIG_LV_LOG_PRINTF=y
+CONFIG_ESP_TASK_WDT_PANIC=y
+CONFIG_ESP_COREDUMP_ENABLE_TO_UART=y

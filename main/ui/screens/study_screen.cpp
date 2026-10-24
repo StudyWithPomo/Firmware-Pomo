@@ -3,6 +3,8 @@
 //   Knob: turn moves between the rows, Start and ◂ Back. Press a length row to grab it, turn
 //         to change it, press again to set. Press "Always show" to toggle it. Hold goes back.
 //   Touch: − / + on the length rows, tap "Always show" to toggle it, Start, ◂ Back.
+// The "Test" chip in the corner switches on test timing (30 s phases) for trying the flow;
+// it's off again after a restart.
 
 #include <ui/screens.hpp>
 #include <ui/navigator.hpp>
@@ -60,6 +62,28 @@ static void update_totals(lv_observer_t *observer, lv_subject_t *subject)
 }
 
 static void on_start(lv_event_t *e) { AppState::instance().startSession(); }
+
+static void on_test(lv_event_t *e)
+{
+    lv_subject_t *test = &AppState::instance().test_timing;
+    lv_subject_set_int(test, !lv_subject_get_int(test));
+}
+
+static void update_test_chip(lv_observer_t *observer, lv_subject_t *subject)
+{
+    lv_obj_t *chip_obj = lv_observer_get_target_obj(observer);
+    const bool on = lv_subject_get_int(subject);
+    lv_label_set_text(lv_obj_get_child(chip_obj, 0), on ? "Test: 30 s" : "Test: off");
+    lv_obj_set_style_border_color(chip_obj, c(on ? NIXIE : MUTED), 0);
+    lv_obj_set_style_text_color(lv_obj_get_child(chip_obj, 0), c(on ? NIXIE : MUTED), 0);
+}
+
+static void update_start(lv_observer_t *observer, lv_subject_t *subject)
+{
+    lv_obj_t *start = lv_observer_get_target_obj(observer);
+    lv_label_set_text(lv_obj_get_child(lv_obj_get_child(start, 0), 1),
+                      lv_subject_get_int(subject) ? "Start test run" : "Start");
+}
 
 // Re-render a row's value (to add or drop the "< >" edit marks)
 static void refresh(lv_obj_t *r)
@@ -143,6 +167,10 @@ void screen_study(lv_obj_t *parent, lv_group_t *group)
     lv_obj_t *content = frame(parent);
 
     Header top = header(content, "Study");
+    lv_obj_t *test = chip(top.row, "", &font_fell_12);
+    lv_obj_set_style_pad_ver(test, 2, 0);
+    lv_obj_add_event_cb(test, on_test, LV_EVENT_CLICKED, nullptr);
+    lv_subject_add_observer_obj(&state.test_timing, update_test_chip, test, nullptr);
 
     lv_obj_t *rows = column(content);
     lv_obj_set_width(rows, LV_PCT(100));
@@ -165,7 +193,9 @@ void screen_study(lv_obj_t *parent, lv_group_t *group)
     lv_obj_t *start = button(content, group, "Start", &font_fell_16);
     lv_obj_set_size(start, LV_PCT(100), 30);
     lv_obj_add_event_cb(start, on_start, LV_EVENT_CLICKED, nullptr);
+    lv_subject_add_observer_obj(&state.test_timing, update_start, start, nullptr);
 
+    focusable(test, group); // after Start, before Back
     lv_group_add_obj(group, top.back);
     lv_group_set_focus_cb(group, on_group_focus);
     lv_group_focus_obj(lv_obj_get_parent(lv_obj_get_parent(study))); // the Study row

@@ -37,19 +37,32 @@ int SessionCore::effectiveMultiplier() const
     return baseMultiplier();
 }
 
-bool SessionCore::start(int study_min, int break_min)
+bool SessionCore::start(int study_min, int break_min, bool test)
 {
-    if (phase_ != Phase::IDLE) return false;
+    if (phase_ != Phase::IDLE && phase_ != Phase::READY) return false;
+    if (phase_ == Phase::READY) index_++;
     study_min_ = snapStudy(study_min);
     break_min_ = clampBreak(study_min_, break_min);
+    test_ = test;
     beginStudy();
     return true;
+}
+
+int SessionCore::phaseS(Phase phase) const
+{
+    if (test_) return TEST_PHASE_S;
+    switch (phase) {
+        case Phase::STUDY: return study_min_ * 60;
+        case Phase::BREAK: return break_min_ * 60;
+        case Phase::LONG_REST: return LONG_REST_MIN * 60;
+        default: return 0;
+    }
 }
 
 void SessionCore::beginStudy()
 {
     phase_ = Phase::STUDY;
-    total_s_ = remaining_s_ = study_min_ * 60;
+    total_s_ = remaining_s_ = phaseS(Phase::STUDY);
     minute_s_ = 0;
     minute_drift_s_ = 0;
     minute_mult_ = MAX_MULTIPLIER;  // lowered by every second of the minute in tick()
@@ -70,7 +83,7 @@ void SessionCore::goIdle()
 void SessionCore::closeMinute()
 {
     elapsed_min_++;
-    if (minute_drift_s_ < DRIFT_MINUTE_S) {
+    if (minute_drift_s_ < (test_ ? TEST_DRIFT_MINUTE_S : DRIFT_MINUTE_S)) {
         focused_min_++;
         earned_xp_ += minute_mult_;
     }
@@ -103,12 +116,13 @@ SessionResult SessionCore::finishStudy()
     r.xp = xp_;
     r.level = levelFor(xp_);
     r.session_index = index_;
+    r.test = test_;
     return r;
 }
 
 void logSession(SessionLog *log, const SessionResult &result, bool completed, int day)
 {
-    log->focused_min += result.focused_min;
+    if (!result.test) log->focused_min += result.focused_min;
     if (!completed) return;
     log->sessions++;
     if (result.session_index >= SessionCore::SESSIONS_PER_SET) log->sets++;
@@ -139,6 +153,7 @@ bool SessionCore::endBreak(SessionEvent *out)
     out->result = {};
     switch (phase_) {
         case Phase::BREAK:
+        case Phase::READY:
             index_++;
             beginStudy();
             out->type = SessionEventType::BREAK_ENDED;
@@ -159,6 +174,7 @@ bool SessionCore::endSet(SessionEvent *out)
             return endEarly(out);
         case Phase::BREAK:
         case Phase::LONG_REST:
+        case Phase::READY:
             goIdle();   // nothing to score outside study
             out->type = SessionEventType::SET_ENDED;
             out->result = {};
@@ -170,7 +186,7 @@ bool SessionCore::endSet(SessionEvent *out)
 
 bool SessionCore::tick(SessionEvent *out)
 {
-    if (phase_ == Phase::IDLE) return false;
+    if (phase_ == Phase::IDLE || phase_ == Phase::READY) return false;
 
     if (phase_ == Phase::STUDY) tickCamera();
 
@@ -180,7 +196,7 @@ bool SessionCore::tick(SessionEvent *out)
         if (drifting()) minute_drift_s_++;
         const int m = effectiveMultiplier();
         if (m < minute_mult_) minute_mult_ = m;
-        if (++minute_s_ >= 60) closeMinute();
+        if (++minute_s_ >= minuteS()) closeMinute();
     }
 
     if (--remaining_s_ > 0) return false;
@@ -191,10 +207,17 @@ bool SessionCore::tick(SessionEvent *out)
             out->result = finishStudy();
             resetCamera();  // camera drift only counts during study
             phase_ = index_ >= SESSIONS_PER_SET ? Phase::LONG_REST : Phase::BREAK;
-            total_s_ = remaining_s_ = (phase_ == Phase::LONG_REST ? LONG_REST_MIN : break_min_) * 60;
+            total_s_ = remaining_s_ = phaseS(phase_);
             return true;
 
         case Phase::BREAK:
+            // Wait for the user rather than starting the next session by itself
+            phase_ = Phase::READY;
+            remaining_s_ = total_s_ = 0;
+            out->type = SessionEventType::BREAK_OVER;
+            out->result = {};
+            return true;
+
         case Phase::LONG_REST:
             return endBreak(out);
 
@@ -292,6 +315,7 @@ void SessionCore::snapshot(SessionSnapshot *out) const
     out->session_index = index_;
     out->study_min = study_min_;
     out->break_min = break_min_;
+    out->test = test_ && phase_ != Phase::IDLE;
     out->remaining_s = remaining_s_;
     out->total_s = total_s_;
     out->drifting = drifting();

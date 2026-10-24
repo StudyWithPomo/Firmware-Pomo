@@ -111,9 +111,13 @@ lv_obj_t *list_row(lv_obj_t *parent, lv_group_t *group, const char *text,
                    const char *detail = nullptr, const lv_font_t *detail_font = nullptr,
                    uint32_t detail_color = BRASS);
 
-// A short side-to-side shake (the pet being wound or petted). Ignored while one is running.
-// Translating instead of rotating: a rotated porthole would need a full-size layer buffer.
-void wiggle(lv_obj_t *obj);
+// Petting: `porthole` hops and three little pixel hearts float up out of it and fade. The
+// hearts live on the top layer and delete themselves, so they outlast a screen change.
+// Decoration only: there's no hearts stat.
+void pet_hearts(lv_obj_t *porthole);
+
+// A hold handler that does nothing, for screens where going back makes no sense (a break)
+void ignore_hold();
 
 // ---- Nixie tubes ----
 

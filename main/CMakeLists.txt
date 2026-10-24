@@ -9,6 +9,7 @@ idf_component_register(
     "hal/touch.c" 
     "hal/encoder.c"
     "system/system.cpp"
+    "system/health.cpp"
 
     "app/session_core.cpp"
     "app/session.cpp"
@@ -38,6 +39,7 @@ idf_component_register(
     "ui/screens/study_screen.cpp"
     "ui/screens/focus_screen.cpp"
     "ui/screens/intermission_screen.cpp"
+    "ui/screens/ready_screen.cpp"
     "ui/screens/circle_screen.cpp"
     "ui/screens/pet_screen.cpp"
     "ui/screens/status_screen.cpp"

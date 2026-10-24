@@ -55,10 +55,13 @@ public:
     lv_subject_t study_min;         // 15 / 25 / 45 / 60
     lv_subject_t break_min;
     lv_subject_t always_show_timer; // 0/1
+    lv_subject_t test_timing;       // 0/1: sessions started here use 30 s phases. Not saved,
+                                    // so it's off again after a restart
 
     // Session
-    lv_subject_t phase;             // Phase
+    lv_subject_t phase;             // Phase (READY: the break ran out, waiting for the user)
     lv_subject_t session_index;     // 1-4
+    lv_subject_t session_test;      // 0/1: the running session uses test timing
     lv_subject_t timer_remaining_s;
     lv_subject_t timer_total_s;
     lv_subject_t focus_state;       // 0 focused, 1 drift
@@ -87,9 +90,11 @@ public:
     void post(const UiCommand &cmd);
 
     // ---- Actions (LVGL task) ----
-    bool startSession();                    // with the current study/break lengths
-    bool startSession(int study, int brk);
+    bool startSession();                    // with the current lengths and test timing
+    bool startSession(int study, int brk, bool test = false);
     void endSessionEarly();
+    void startNextSession();                // during a break or when READY: the set's next session
+    void endSet();                          // the whole set -> idle
     void peek();                            // light the timer for 5 s
     void shh();                             // the pet hushes for 2 s
     void petted();                          // outside study, the pet is pleased for 2 s

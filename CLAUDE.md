@@ -21,6 +21,7 @@ Specs, in order of authority:
   - `sdkconfig` is gitignored and generated from `sdkconfig.defaults`. Delete `sdkconfig` after changing the defaults.
 - **Rules tests** for the session/XP logic (`main/app/session_core.cpp`, no IDF needed). MSYS2 g++ is at `/c/msys64/mingw64/bin`:
   `g++ -std=c++17 -Wall -I main test/session_test.cpp main/app/session_core.cpp -o session_test && ./session_test`
+- **Test timing on the device:** the "Test" chip in the Study screen's header makes every study session, break and long rest 30 s (scoring minutes are 10 s, a drift minute is 3 s of drift). Focus and Intermission say "· Test". Test sessions earn XP and count in the session log (sessions, sets, today) but add no focused minutes. It isn't saved, so a restart turns it off. Rules: `SessionCore::TEST_*`.
 - **PC screen preview:** `tools/preview/build.sh`. Needs one `idf.py build` first.
   - It compiles the real UI and session code against LVGL, using the device's own LVGL config, and renders every screen to `tools/preview/out/*.png`. It also prints LVGL memory per screen.
   - New firmware symbols that screens or AppState call need stubs in `tools/preview/sim_stubs.cpp`. MinGW gaps (strlcat, strlcpy, setenv, localtime_r) are in `stubs/compat.h`.
@@ -29,8 +30,10 @@ Specs, in order of authority:
   - The device shows up as **Pomo-8126** (Classic SPP, Just Works; PIN 1234 if asked).
   - On the user's laptop the **outgoing** Bluetooth COM port is **COM7** (COM6 is incoming).
   - Windows shows "Not connected" until a program opens the port; that's normal.
-- **Debugging crashes:**
-  - Get the full `Backtrace:` line.
+- **Debugging crashes and freezes:**
+  - Get the full `Backtrace:` line, and the core dump that follows a panic (`idf.py monitor` decodes it).
+  - Freeze checks (`system/health.*`, `sdkconfig.defaults`): LVGL asserts abort (`main/lvgl_hooks/pomo_lv_assert.h`; LVGL's default was a silent `while(1);`), the task watchdog panics, LVGL warnings are logged, and a watcher logs `[ui] stalled ...` and aborts when the UI task hasn't run for 5 s. `[heap] every minute` lines show leaks.
+  - `POMO_SOAK=N tools/preview/build/pomo_preview <out>` runs every screen and a test-timing set N times and prints LVGL memory, to catch UI leaks (none at 200 rounds as of milestone C).
   - The boot log prints `[heap]` and `[stack] LVGL task` lines.
   - The user's local `sdkconfig` currently has diagnostics on (`CONFIG_FREERTOS_WATCHPOINT_END_OF_STACK`, `CONFIG_HEAP_POISONING_COMPREHENSIVE`). Turn them off during a build that is a full rebuild anyway.
 
@@ -64,7 +67,7 @@ Display and touch share one SPI bus: `display.c` initializes it, `touch.c` joins
   - `touch.c` handles the XPT2046 and calibrates raw readings.
   - `encoder.c` reads the knob with PCNT x4 quadrature. A short press reaches LVGL as a click on release; a 2 s hold calls a hold callback.
 - `app/`:
-  - `session_core.*`: pure C++ rules, unit tested.
+  - `session_core.*`: pure C++ rules, unit tested. A break running out goes to `Phase::READY` (event `BREAK_OVER`) and waits; `endBreak()` starts the next session, `endSet()` finishes. The long rest running out still ends the set.
   - `session.*`: a 1 s `esp_timer`, a mutex, a snapshot queue and event queues (`subscribe()` gives each listener its own).
   - `storage.*`: NVS namespace `pomo`; only changed keys are written. Includes the session log (`SessionLog` in `session_core`: sessions, sets, focused minutes, today).
 - `comms/`:
@@ -73,10 +76,10 @@ Display and touch share one SPI bus: `display.c` initializes it, `touch.c` joins
 - `ui/`:
   - `app_state.*`: all `lv_subject`s. It drains the session queues and a `UiCommand` queue in a 50 ms `lv_timer`, navigates on session events, and autosaves 2 s after a change (XP immediately when a session is scored).
   - `navigator.*`: screen registry, a fresh `lv_group` per screen bound to the encoder, `back()` history, per-screen hold handler, screen swaps deferred with `lv_async_call`.
-  - `theme.*`: colour tokens and builders (frame, `header()` with ◂ Back, porthole, bubble, chip, button, list_row, `step_buttons()` −/+, nixie tubes, lamps, `wiggle()`, focus and grabbed styles, `from_knob()`).
+  - `theme.*`: colour tokens and builders (frame, `header()` with ◂ Back, porthole, bubble, chip, button, list_row, `step_buttons()` −/+, nixie tubes, lamps, `pet_hearts()` petting hearts on the top layer, focus and grabbed styles, `from_knob()`, `ignore_hold`).
   - `pet/`: the `pet_data.h` port of `pet.js`, and a `pet_view` drawn as scaled rectangles in a draw callback.
   - `fonts/`: IM Fell English SC, Libre Caslon, IBM Plex Mono, generated with lv_font_conv, with ▸ ◂ − merged from DejaVu Sans. See `fonts/README.md`.
-  - `screens/`: one file per screen. Boot, Home (Start + Study/Pet/Circle tiles), Study, Focus, Intermission, Circle, Pet hub, Status, Wardrobe, Playground (placeholder).
+  - `screens/`: one file per screen. Boot, Home (Start + Study/Pet/Circle tiles), Study, Focus, Intermission (Start now / End set), Ready ("Ready for session N of 4?"), Circle, Pet hub, Status, Wardrobe, Playground (placeholder).
 
 **UI conventions (from milestone A):**
 - Every screen but Home and Focus has `header()`'s ◂ Back, added to the group last so it's the knob's last stop. Hold also goes back; Back with no history goes Home.
@@ -112,7 +115,8 @@ Cube OS was imported into this repo, then rebuilt milestone by milestone. The us
 | `e40860d` M6 | Saved progress and settings in NVS. Tested: survives reset and power cycle. |
 | `4932271` | LVGL task stack raised to 16 KB (the Workshop crashed); `[stack]` boot log. |
 | `5daebea` A | Touch and knob parity: ◂ Back, −/+ buttons, grab rows, Focus Peek/End session buttons, ◂ − glyphs. Tested on hardware. |
-| B | New menu structure: Home tiles, Study screen (replaces Wind, Menu, Timer settings), Pet hub, Status, Wardrobe, Playground placeholder, session log in NVS. Tested on hardware. |
+| `9741998` B | New menu structure: Home tiles, Study screen (replaces Wind, Menu, Timer settings), Pet hub, Status, Wardrobe, Playground placeholder, session log in NVS. Tested on hardware. |
+| C | Break -> next session: `READY` phase and Ready screen, Start now / End set on Intermission, petting hearts, protocol phase `"ready"`. Plus test timing (30 s phases) behind a Study screen chip. |
 
 Other notes:
 - A screenshot gallery of every screen was published as a private artifact, "Pomo Screen Preview".
@@ -129,6 +133,8 @@ Other notes:
   - battery gauge behind `HAS_BATTERY` (ADC, smoothed, shown on Home)
   - dim the backlight during focus (not while peeking or drifting)
 - **Frontend work (other repo):**
+  - accept `"test": true` in the device's `start` message (test timing: 30 s phases instead of the `study`/`brk` minutes)
+  - add `"ready"` to the `state` message's `phase` in `schema/pomo-device.schema.json` (milestone C: the break ran out and the device waits; a `start` or `end {scope: "break"}` starts the next session, `end {scope: "session"}` finishes)
   - send `time`/`tz` in `config`
   - follow the device's `start`/`state`/`end` instead of running its own timer and XP
   - drop hearts
@@ -165,7 +171,7 @@ Do them in order, one milestone at a time, checking each in the preview first.
     - **Playground:** milestone D.
     - **Wardrobe:** body/face/finish. It replaces "Mochi's workshop", because the pet's name varies.
   - **Session log** saved in NVS: sessions completed, sets finished, total focused minutes, today's sessions.
-- **C: break → next session** (#10)
+- **C: break → next session** (#10). **Done.** Holding the knob does nothing on Intermission and Ready, and the knob no longer winds the pet there (winding is D's Playground).
   - No auto-start after a break: "Ready for session N of 4?" with **Start next** / **Finish for now**.
   - **Start now** / **End set** buttons during the break.
   - Build on Anthony's end scopes (`endBreak`/`endSet`) and update the rules tests.

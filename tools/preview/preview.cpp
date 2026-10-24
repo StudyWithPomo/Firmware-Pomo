@@ -93,6 +93,25 @@ static void click_focused()
     pump(50);
 }
 
+// Tap the first clickable pet on screen, like a finger would (PRESSED is what pets react to)
+static lv_obj_t *find_pet(lv_obj_t *obj)
+{
+    if (lv_obj_has_flag(obj, LV_OBJ_FLAG_CLICKABLE) && lv_obj_get_child_count(obj) == 0 &&
+        lv_obj_get_width(obj) == 64 && lv_obj_get_height(obj) == 64) return obj;
+    for (uint32_t i = 0; i < lv_obj_get_child_count(obj); i++) {
+        lv_obj_t *found = find_pet(lv_obj_get_child(obj, i));
+        if (found) return found;
+    }
+    return nullptr;
+}
+
+static void tap_pet()
+{
+    lv_obj_t *pet = find_pet(ui_get_content_area());
+    if (pet) lv_obj_send_event(pet, LV_EVENT_PRESSED, nullptr);
+    else printf("tap_pet: no pet on screen\n");
+}
+
 static void focus_next() { lv_group_focus_next(Navigator::instance().currentGroup()); pump(50); }
 
 // A grid of every body x finish, and one of every mood, drawn with the real pet renderer
@@ -135,6 +154,74 @@ static void pet_sheet(bool moods)
     }
 }
 
+static unsigned lvgl_used()
+{
+    lv_mem_monitor_t mon;
+    lv_mem_monitor(&mon);
+    return (unsigned)(mon.total_size - mon.free_size);
+}
+
+// POMO_SOAK=N: go round every screen and flow N times and print LVGL memory at Home, to
+// catch leaks (memory that keeps growing)
+static void soak(int rounds)
+{
+    AppState &state = AppState::instance();
+    lv_subject_set_int(&state.test_timing, 1);
+    for (int i = 1; i <= rounds; i++) {
+        nav_reset(ScreenID::HOME);
+        tap_pet();
+        pump(1200);
+        nav_go(ScreenID::STUDY);
+        click_focused();
+        send_key(LV_KEY_RIGHT);
+        send_key(LV_KEY_LEFT);
+        click_focused();
+        Navigator::instance().back();
+        pump(50);
+        nav_go(ScreenID::PET);
+        tap_pet();
+        pump(1200);
+        nav_go(ScreenID::STATUS);
+        Navigator::instance().back();
+        pump(50);
+        nav_go(ScreenID::WARDROBE);
+        Navigator::instance().back();
+        pump(50);
+        nav_go(ScreenID::PLAYGROUND);
+        nav_reset(ScreenID::HOME);
+        nav_go(ScreenID::CIRCLE);
+
+        // A test session: peek, drift, the confirm dialog, then break, ready, next, end set
+        state.startSession();
+        pump(100);
+        state.peek();
+        advance_seconds(6);
+        Session::instance().setDrift(true, "YouTube");
+        advance_seconds(4);
+        Session::instance().setDrift(false, nullptr);
+        sim_encoder_hold();
+        pump(50);
+        click_focused(); // Keep going
+        pump(100);
+        advance_seconds(25);
+        tap_pet();
+        pump(1200);
+        advance_seconds(30);
+        state.startNextSession();
+        pump(100);
+        advance_seconds(30);
+        advance_seconds(30);
+        state.endSet();
+        pump(100);
+
+        nav_reset(ScreenID::HOME);
+        pump(2000);
+        if (i == 1 || i == 10 || i % 50 == 0 || i == rounds)
+            printf("soak round %4d: LVGL heap used %u at Home\n", i, lvgl_used());
+    }
+    lv_subject_set_int(&state.test_timing, 0);
+}
+
 int main(int argc, char **argv)
 {
     if (argc > 1) s_out_dir = argv[1];
@@ -175,9 +262,8 @@ int main(int argc, char **argv)
     shot("01_home_circle", "01 Home, with Ava and Dev nearby");
     focus_next();
     shot("01_home_circle_focus", "01 Home, knob on the Study tile");
-    state.petted();
-    pump(50);
-    shot("01_home_petted", "01 Home, pet tapped");
+    tap_pet();
+    shot("01_home_petted", "01 Home, pet tapped: hearts on their way up");
     pump(2100);
 
     nav_reset(ScreenID::BOOT);
@@ -188,6 +274,23 @@ int main(int argc, char **argv)
     shot("02_study_45", "02 Study, length grabbed and turned to 45 min");
     send_key(LV_KEY_LEFT);
     click_focused(); // let go
+
+    // Test timing: the chip in the Study header, then a 30 s session and break
+    lv_subject_set_int(&state.test_timing, 1);
+    pump(50);
+    shot("02_study_test", "02 Study, test timing on");
+    nav_reset(ScreenID::HOME);
+    shot("01_home_test", "01 Home, test timing on");
+    state.startSession();
+    pump(100);
+    advance_seconds(12);
+    shot("03_focus_test", "03 Focus, a 30 s test session");
+    advance_seconds(18 + 5);
+    shot("05_intermission_test", "05 Intermission after a test session");
+    advance_seconds(25);
+    state.endSet(); // Finish for now on Ready
+    pump(100);
+    lv_subject_set_int(&state.test_timing, 0);
 
     nav_reset(ScreenID::HOME);
     nav_go(ScreenID::PET);
@@ -247,6 +350,16 @@ int main(int argc, char **argv)
     advance_seconds(snap.remaining_s);
     advance_seconds(48);
     shot("05_intermission", "05 Intermission");
+    tap_pet();
+    shot("05_intermission_hearts", "05 Intermission, pet tapped");
+    pump(1500);
+
+    // Run out the break -> Ready, then Finish for now -> Home
+    advance_seconds(Session::instance().snapshot().remaining_s);
+    shot("05b_ready", "05b Ready for session 2 of 4?");
+    focus_next();
+    click_focused();
+    pump(100);
 
     nav_reset(ScreenID::HOME);
     nav_go(ScreenID::STUDY);
@@ -264,5 +377,6 @@ int main(int argc, char **argv)
     shot("pets_moods", "Pet: the 6 moods");
 
     fclose(s_index);
+    if (const char *rounds = getenv("POMO_SOAK")) soak(atoi(rounds));
     return 0;
 }

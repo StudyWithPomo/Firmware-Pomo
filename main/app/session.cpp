@@ -11,6 +11,7 @@ static const char *phase_name(Phase p)
         case Phase::STUDY: return "study";
         case Phase::BREAK: return "break";
         case Phase::LONG_REST: return "long rest";
+        case Phase::READY: return "ready";
         default: return "idle";
     }
 }
@@ -84,14 +85,14 @@ void Session::onTick(void *arg)
     }
 }
 
-bool Session::start(int study_min, int break_min)
+bool Session::start(int study_min, int break_min, bool test)
 {
     SessionEvent event = { SessionEventType::STARTED, {} };
     xSemaphoreTake(mutex, portMAX_DELAY);
-    const bool ok = core.start(study_min, break_min);
+    const bool ok = core.start(study_min, break_min, test);
     if (ok) publish(&event);
     xSemaphoreGive(mutex);
-    if (ok) ESP_LOGI(TAG, "Started %d / %d", study_min, break_min);
+    if (ok) ESP_LOGI(TAG, "Started %d / %d%s", study_min, break_min, test ? " with test timing (30 s phases)" : "");
     return ok;
 }
 

@@ -9,6 +9,7 @@
 #include "esp_lvgl_port.h"
 
 #include "system/system.hpp"
+#include "system/health.hpp"
 
 #include "hal/display.h"
 #include "hal/touch.h"
@@ -30,13 +31,7 @@
 
 static const char *TAG = "main";
 
-static void log_heap(const char *stage)
-{
-    ESP_LOGI(TAG, "[heap] %s: free %u, largest block %u, min ever %u", stage,
-             (unsigned)heap_caps_get_free_size(MALLOC_CAP_8BIT),
-             (unsigned)heap_caps_get_largest_free_block(MALLOC_CAP_8BIT),
-             (unsigned)heap_caps_get_minimum_free_size(MALLOC_CAP_8BIT));
-}
+static void log_heap(const char *stage) { health_log_heap(stage); }
 
 extern "C" void app_main(void)
 {
@@ -93,6 +88,7 @@ extern "C" void app_main(void)
     Navigator::instance().reset(ScreenID::BOOT);
 #endif
     lv_timer_create([](lv_timer_t* t){
+        health_ui_alive();
         AppState::instance().update();
         // Log each new low in the LVGL task's free stack, to see how close screens get
         static UBaseType_t lowest = UINT32_MAX;
@@ -118,4 +114,7 @@ extern "C" void app_main(void)
     }
     log_heap("bluetooth");
 #endif
+
+    // From here a UI that stops for 5 s logs why and reboots, instead of freezing
+    health_start();
 }

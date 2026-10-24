@@ -81,6 +81,7 @@ static const char *phase_name(Phase p)
         case Phase::STUDY: return "study";
         case Phase::BREAK: return "break";
         case Phase::LONG_REST: return "long_rest";
+        case Phase::READY: return "ready";
         default: return "idle";
     }
 }
@@ -128,6 +129,7 @@ static void send_start(const SessionSnapshot &s)
     cJSON_AddNumberToObject(o, "study", s.study_min);
     cJSON_AddNumberToObject(o, "brk", s.break_min);
     cJSON_AddNumberToObject(o, "session", s.session_index);
+    if (s.test) cJSON_AddBoolToObject(o, "test", true); // 30 s phases, not the lengths above
     send_json(o);
 }
 
@@ -316,6 +318,7 @@ static void link_task(void *arg)
                     send_end(event.result, true);
                     break;
                 case SessionEventType::SET_ENDED:
+                case SessionEventType::BREAK_OVER: // the state message says "ready"
                     break;
             }
         }

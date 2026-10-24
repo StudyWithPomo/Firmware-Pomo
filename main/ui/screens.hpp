@@ -7,6 +7,7 @@ enum class ScreenID {
     STUDY,          // lengths, "Always show timer", the session log, Start
     FOCUS,          // includes the PEEK and DRIFT states
     INTERMISSION,
+    READY,          // "Ready for session N of 4?" after a break
     CIRCLE,
     PET,            // hub: Status, Playground, Wardrobe
     STATUS,
@@ -26,6 +27,7 @@ void screen_home(lv_obj_t *parent, lv_group_t *group);
 void screen_study(lv_obj_t *parent, lv_group_t *group);
 void screen_focus(lv_obj_t *parent, lv_group_t *group);
 void screen_intermission(lv_obj_t *parent, lv_group_t *group);
+void screen_ready(lv_obj_t *parent, lv_group_t *group);
 void screen_circle(lv_obj_t *parent, lv_group_t *group);
 void screen_pet(lv_obj_t *parent, lv_group_t *group);
 void screen_status(lv_obj_t *parent, lv_group_t *group);

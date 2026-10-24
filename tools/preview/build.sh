@@ -40,7 +40,7 @@ else
 fi
 
 DEFS=(-DLV_CONF_SKIP "-DLV_CONF_KCONFIG_EXTERNAL_INCLUDE=\"pomo_kconfig.h\"" "-DLV_ASSERT_HANDLER=abort();")
-INCS=(-I"$OBJ" -I"$HERE/stubs" -I"$ROOT/main" -I"$LVGL")
+INCS=(-I"$OBJ" -I"$HERE/stubs" -I"$ROOT/main" -I"$ROOT/main/lvgl_hooks" -I"$LVGL")
 CFLAGS=(-O1 -include "$HERE/stubs/compat.h" "${DEFS[@]}" "${INCS[@]}")
 
 # LVGL itself (only rebuilt when the object is missing)

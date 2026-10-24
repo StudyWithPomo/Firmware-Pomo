@@ -26,7 +26,7 @@ static void update_mood(lv_observer_t *observer, lv_subject_t *subject)
 static void on_pet_tap(lv_event_t *e)
 {
     AppState::instance().petted();
-    wiggle(s_porthole);
+    pet_hearts(s_porthole);
 }
 
 static void go(lv_event_t *e)

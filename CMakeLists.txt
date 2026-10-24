@@ -5,4 +5,8 @@
 cmake_minimum_required(VERSION 3.5)
 
 include($ENV{IDF_PATH}/tools/cmake/project.cmake)
+
+# For LVGL's assert hook (main/lvgl_hooks/pomo_lv_assert.h, named in sdkconfig.defaults)
+idf_build_set_property(INCLUDE_DIRECTORIES "${CMAKE_CURRENT_LIST_DIR}/main/lvgl_hooks" APPEND)
+
 project(Pomo)

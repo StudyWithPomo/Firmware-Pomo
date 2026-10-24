@@ -55,9 +55,11 @@ AppState::AppState() {
     lv_subject_init_int(&study_min, 25);
     lv_subject_init_int(&break_min, 5);
     lv_subject_init_int(&always_show_timer, 0);
+    lv_subject_init_int(&test_timing, 0);
 
     lv_subject_init_int(&phase, (int)Phase::IDLE);
     lv_subject_init_int(&session_index, 1);
+    lv_subject_init_int(&session_test, 0);
     lv_subject_init_int(&timer_remaining_s, 0);
     lv_subject_init_int(&timer_total_s, 0);
     lv_subject_init_int(&focus_state, 0);
@@ -199,6 +201,7 @@ void AppState::drain(lv_timer_t *t) {
 void AppState::applySnapshot(const SessionSnapshot &snap) {
     lv_subject_set_int(&phase, (int)snap.phase);
     lv_subject_set_int(&session_index, snap.session_index);
+    lv_subject_set_int(&session_test, snap.test ? 1 : 0);
     lv_subject_set_int(&timer_total_s, snap.total_s);
     lv_subject_set_int(&timer_remaining_s, snap.remaining_s);
     if (strcmp(lv_subject_get_string(&drift_label), snap.drift_label) != 0)
@@ -237,6 +240,9 @@ void AppState::handleEvent(const SessionEvent &event) {
             break;
         case SessionEventType::SET_ENDED:
             nav.reset(ScreenID::HOME);
+            break;
+        case SessionEventType::BREAK_OVER:
+            nav.reset(ScreenID::READY);
             break;
     }
 }
@@ -277,15 +283,24 @@ void AppState::refreshMood() {
 // ---- Actions ----
 
 bool AppState::startSession() {
-    return startSession(lv_subject_get_int(&study_min), lv_subject_get_int(&break_min));
+    return startSession(lv_subject_get_int(&study_min), lv_subject_get_int(&break_min),
+                        lv_subject_get_int(&test_timing) != 0);
 }
 
-bool AppState::startSession(int study, int brk) {
-    return Session::instance().start(study, brk);
+bool AppState::startSession(int study, int brk, bool test) {
+    return Session::instance().start(study, brk, test);
 }
 
 void AppState::endSessionEarly() {
     Session::instance().endEarly();
+}
+
+void AppState::startNextSession() {
+    Session::instance().endBreak();
+}
+
+void AppState::endSet() {
+    Session::instance().endSet();
 }
 
 void AppState::peek() {

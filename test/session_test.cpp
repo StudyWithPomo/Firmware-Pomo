@@ -71,10 +71,21 @@ static void test_full_session_and_break()
     s.snapshot(&snap);
     CHECK_EQ(snap.remaining_s, 5 * 60);
 
-    CHECK_EQ(run(s, 5 * 60), (int)SessionEventType::BREAK_ENDED);
+    // The break running out waits for the user
+    CHECK_EQ(run(s, 5 * 60), (int)SessionEventType::BREAK_OVER);
+    s.snapshot(&snap);
+    CHECK_EQ((int)snap.phase, (int)Phase::READY);
+    CHECK_EQ(snap.session_index, 1);
+    CHECK_EQ(snap.remaining_s, 0);
+    CHECK_EQ(run(s, 10 * 60), -1);              // and keeps waiting
+    CHECK_EQ((int)s.phase(), (int)Phase::READY);
+
+    CHECK_EQ(s.endBreak(&e), true);             // Start next
+    CHECK_EQ((int)e.type, (int)SessionEventType::BREAK_ENDED);
     s.snapshot(&snap);
     CHECK_EQ((int)snap.phase, (int)Phase::STUDY);
     CHECK_EQ(snap.session_index, 2);
+    CHECK_EQ(snap.remaining_s, 25 * 60);
 }
 
 static void test_drift_minutes()
@@ -159,7 +170,9 @@ static void test_set_and_long_rest()
     s.start(15, 3);
     for (int i = 1; i <= 3; i++) {
         CHECK_EQ(run(s, 15 * 60), (int)SessionEventType::STUDY_ENDED);
-        CHECK_EQ(run(s, 3 * 60), (int)SessionEventType::BREAK_ENDED);
+        CHECK_EQ(run(s, 3 * 60), (int)SessionEventType::BREAK_OVER);
+        SessionEvent e;
+        CHECK_EQ(s.endBreak(&e), true);
     }
     CHECK_EQ(run(s, 15 * 60), (int)SessionEventType::STUDY_ENDED);
     CHECK_EQ((int)s.phase(), (int)Phase::LONG_REST);
@@ -369,6 +382,85 @@ static void test_end_break_and_set()
     }
 }
 
+static void test_ready()
+{
+    puts("ready after a break");
+    SessionEvent e = {};
+    {
+        SessionCore s;
+        s.start(25, 5);
+        run(s, 30 * 60);
+        CHECK_EQ((int)s.phase(), (int)Phase::READY);
+        const int xp = s.xp();
+        CHECK_EQ(s.endSet(&e), true);           // Finish for now: idle, nothing scored
+        CHECK_EQ((int)e.type, (int)SessionEventType::SET_ENDED);
+        CHECK_EQ((int)s.phase(), (int)Phase::IDLE);
+        CHECK_EQ(snap_of(s).session_index, 1);
+        CHECK_EQ(s.xp(), xp);
+    }
+    {
+        SessionCore s;
+        s.start(25, 5);
+        run(s, 30 * 60);
+        CHECK_EQ(s.endEarly(&e), false);        // nothing to end early
+        CHECK_EQ(s.start(45, 9), true);         // a start from the laptop continues the set
+        SessionSnapshot snap = snap_of(s);
+        CHECK_EQ((int)snap.phase, (int)Phase::STUDY);
+        CHECK_EQ(snap.session_index, 2);
+        CHECK_EQ(snap.remaining_s, 45 * 60);
+    }
+    {
+        SessionCore s;
+        s.start(25, 5);
+        run(s, 25 * 60 + 60);
+        CHECK_EQ(s.endBreak(&e), true);         // Start now, mid-break
+        CHECK_EQ((int)e.type, (int)SessionEventType::BREAK_ENDED);
+        CHECK_EQ(snap_of(s).session_index, 2);
+    }
+}
+
+static void test_test_timing()
+{
+    puts("test timing: 30 s phases, 10 s minutes");
+    SessionCore s;
+    SessionEvent e = {};
+    CHECK_EQ(s.start(25, 5, true), true);
+    SessionSnapshot snap = snap_of(s);
+    CHECK_EQ(snap.remaining_s, 30);
+    CHECK_EQ(snap.test, true);
+    CHECK_EQ(snap.study_min, 25);               // the real lengths are kept
+
+    // 3 s of drift in the second "minute" makes it a drift minute
+    run(s, 10);
+    s.setDrift(true, "YouTube");
+    run(s, 3);
+    s.setDrift(false, nullptr);
+    CHECK_EQ(run(s, 17, &e), (int)SessionEventType::STUDY_ENDED);
+    CHECK_EQ(e.result.elapsed_min, 3);
+    CHECK_EQ(e.result.focused_min, 2);
+    CHECK_EQ(e.result.test, true);
+    CHECK_EQ(snap_of(s).remaining_s, 30);       // break
+
+    CHECK_EQ(run(s, 30), (int)SessionEventType::BREAK_OVER);
+    CHECK_EQ(s.endBreak(&e), true);
+    for (int i = 2; i <= 4; i++) {
+        CHECK_EQ(run(s, 30), (int)SessionEventType::STUDY_ENDED);
+        if (i < 4) {
+            CHECK_EQ(run(s, 30), (int)SessionEventType::BREAK_OVER);
+            s.endBreak(&e);
+        }
+    }
+    CHECK_EQ((int)s.phase(), (int)Phase::LONG_REST);
+    CHECK_EQ(snap_of(s).remaining_s, 30);
+    CHECK_EQ(run(s, 30), (int)SessionEventType::SET_ENDED);
+
+    // The next normal start is normal again
+    s.start(25, 5);
+    snap = snap_of(s);
+    CHECK_EQ(snap.remaining_s, 25 * 60);
+    CHECK_EQ(snap.test, false);
+}
+
 static void test_session_log()
 {
     puts("session log");
@@ -418,6 +510,23 @@ static void test_session_log()
     CHECK_EQ(full.sets, 1);
     CHECK_EQ(full.focused_min, 60);
     CHECK_EQ(logToday(full, 7), 4);
+
+    // A set under test timing counts its sessions and set, but no minutes
+    SessionCore t;
+    SessionLog test_log = {};
+    t.start(25, 5, true);
+    for (int i = 0; i < 4; i++) {
+        CHECK_EQ(run(t, 30, &e), (int)SessionEventType::STUDY_ENDED);
+        logSession(&test_log, e.result, true, 7);
+        if (i < 3) {
+            run(t, 30);
+            t.endBreak(&e);
+        }
+    }
+    CHECK_EQ(test_log.sessions, 4);
+    CHECK_EQ(test_log.sets, 1);
+    CHECK_EQ(test_log.focused_min, 0);
+    CHECK_EQ(logToday(test_log, 7), 4);
 }
 
 static void test_copy_utf8()
@@ -451,6 +560,8 @@ int main()
     test_camera_timeout_and_phases();
     test_drift_sources();
     test_end_break_and_set();
+    test_ready();
+    test_test_timing();
     test_session_log();
     test_copy_utf8();
     if (failures) {

@@ -28,8 +28,13 @@ static void update_xp(lv_observer_t *observer, lv_subject_t *subject)
 static void update_lengths(lv_observer_t *observer, lv_subject_t *subject)
 {
     AppState &state = AppState::instance();
-    lv_label_set_text_fmt(lv_observer_get_target_obj(observer), "%d / %d",
-                          (int)lv_subject_get_int(&state.study_min), (int)lv_subject_get_int(&state.break_min));
+    lv_obj_t *label = lv_observer_get_target_obj(observer);
+    if (lv_subject_get_int(&state.test_timing)) {
+        lv_label_set_text(label, "test · 30 s");
+        return;
+    }
+    lv_label_set_text_fmt(label, "%d / %d", (int)lv_subject_get_int(&state.study_min),
+                          (int)lv_subject_get_int(&state.break_min));
 }
 
 static void update_today(lv_observer_t *observer, lv_subject_t *subject)
@@ -65,7 +70,7 @@ static void on_start(lv_event_t *e) { AppState::instance().startSession(); }
 static void on_pet_tap(lv_event_t *e)
 {
     AppState::instance().petted();
-    wiggle(s_porthole);
+    pet_hearts(s_porthole);
 }
 
 static void go(lv_event_t *e)
@@ -130,6 +135,7 @@ void screen_home(lv_obj_t *parent, lv_group_t *group)
     lv_obj_t *lengths = label(start, "", &font_plex_12);
     lv_subject_add_observer_obj(&state.study_min, update_lengths, lengths, nullptr);
     lv_subject_add_observer_obj(&state.break_min, update_lengths, lengths, nullptr);
+    lv_subject_add_observer_obj(&state.test_timing, update_lengths, lengths, nullptr);
     focusable(start, group, start_ptr);
     lv_obj_add_event_cb(start, on_start, LV_EVENT_CLICKED, nullptr);
 

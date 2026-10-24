@@ -5,6 +5,7 @@
 
 #include <ui/app_state.hpp>
 #include <ui/navigator.hpp>
+#include <ui/pet/pet_data.h>
 
 namespace theme {
 
@@ -333,30 +334,97 @@ lv_obj_t *step_buttons(lv_obj_t *parent, lv_obj_t *target)
     return r;
 }
 
-static void wiggle_exec(void *obj, int32_t v)
+// ---- Petting hearts ----
+
+static const int HEART_W = 7, HEART_H = 6, HEART_SCALE = 2;
+static const int HEART_RISE = 38;       // px
+static const uint32_t HEART_MS = 900;
+// .XX.XX.
+// XXXXXXX
+// XXXXXXX
+// .XXXXX.
+// ..XXX..
+// ...X...
+static const PetRect HEART_RECTS[] = { {1, 0, 2, 1}, {4, 0, 2, 1}, {0, 1, 7, 2}, {1, 3, 5, 1}, {2, 4, 3, 1}, {3, 5, 1, 1} };
+
+// The heart's opacity is its user data, so fading needs no extra layer
+static void heart_draw(lv_event_t *e)
 {
-    lv_obj_set_style_translate_x((lv_obj_t *)obj, v, 0);
+    lv_obj_t *obj = lv_event_get_current_target_obj(e);
+    lv_draw_rect_dsc_t dsc;
+    lv_draw_rect_dsc_init(&dsc);
+    dsc.bg_color = c(COPPER);
+    dsc.bg_opa = (lv_opa_t)(uintptr_t)lv_obj_get_user_data(obj);
+    dsc.radius = 0;
+    lv_area_t coords;
+    lv_obj_get_coords(obj, &coords);
+    for (const PetRect &r : HEART_RECTS) {
+        lv_area_t a;
+        a.x1 = coords.x1 + r.x * HEART_SCALE;
+        a.y1 = coords.y1 + r.y * HEART_SCALE;
+        a.x2 = a.x1 + r.w * HEART_SCALE - 1;
+        a.y2 = a.y1 + r.h * HEART_SCALE - 1;
+        lv_draw_rect(lv_event_get_layer(e), &dsc, &a);
+    }
 }
 
-static void wiggle_done(lv_anim_t *a)
+// v runs 0..1000: rise all the way, fade over the second half
+static void heart_exec(void *var, int32_t v)
 {
-    lv_obj_set_style_translate_x((lv_obj_t *)a->var, 0, 0);
+    lv_obj_t *obj = (lv_obj_t *)var;
+    lv_obj_set_style_translate_y(obj, -HEART_RISE * v / 1000, 0);
+    const int opa = v < 500 ? LV_OPA_COVER : LV_OPA_COVER * (1000 - v) / 500;
+    lv_obj_set_user_data(obj, (void *)(uintptr_t)opa);
+    lv_obj_invalidate(obj);
 }
 
-void wiggle(lv_obj_t *obj)
+static void heart_done(lv_anim_t *a) { lv_obj_delete_async((lv_obj_t *)a->var); }
+
+static void hop_exec(void *obj, int32_t v) { lv_obj_set_style_translate_y((lv_obj_t *)obj, v, 0); }
+
+void pet_hearts(lv_obj_t *porthole)
 {
-    if (!obj || lv_anim_get(obj, wiggle_exec)) return;
-    lv_anim_t a;
-    lv_anim_init(&a);
-    lv_anim_set_var(&a, obj);
-    lv_anim_set_exec_cb(&a, wiggle_exec);
-    lv_anim_set_values(&a, -4, 4);
-    lv_anim_set_duration(&a, 70);
-    lv_anim_set_reverse_duration(&a, 70);
-    lv_anim_set_repeat_count(&a, 2);
-    lv_anim_set_completed_cb(&a, wiggle_done);
-    lv_anim_start(&a);
+    if (!porthole) return;
+    lv_area_t from;
+    lv_obj_get_coords(porthole, &from);
+    const int32_t cx = (from.x1 + from.x2) / 2;
+
+    static const int OFFSET_X[3] = {-22, 2, 18};
+    static const int OFFSET_Y[3] = {6, 0, 10};
+    for (int i = 0; i < 3; i++) {
+        lv_obj_t *heart = lv_obj_create(lv_layer_top());
+        lv_obj_remove_style_all(heart);
+        lv_obj_remove_flag(heart, LV_OBJ_FLAG_CLICKABLE);
+        lv_obj_set_size(heart, HEART_W * HEART_SCALE, HEART_H * HEART_SCALE);
+        lv_obj_set_pos(heart, cx + OFFSET_X[i] - HEART_W, from.y1 + OFFSET_Y[i]);
+        lv_obj_set_user_data(heart, (void *)(uintptr_t)LV_OPA_COVER);
+        lv_obj_add_event_cb(heart, heart_draw, LV_EVENT_DRAW_MAIN, nullptr);
+
+        lv_anim_t a;
+        lv_anim_init(&a);
+        lv_anim_set_var(&a, heart);
+        lv_anim_set_exec_cb(&a, heart_exec);
+        lv_anim_set_values(&a, 0, 1000);
+        lv_anim_set_duration(&a, HEART_MS);
+        lv_anim_set_delay(&a, i * 120);
+        lv_anim_set_path_cb(&a, lv_anim_path_ease_out);
+        lv_anim_set_completed_cb(&a, heart_done);
+        lv_anim_start(&a);
+    }
+
+    if (!lv_anim_get(porthole, hop_exec)) {
+        lv_anim_t a;
+        lv_anim_init(&a);
+        lv_anim_set_var(&a, porthole);
+        lv_anim_set_exec_cb(&a, hop_exec);
+        lv_anim_set_values(&a, 0, -5);
+        lv_anim_set_duration(&a, 110);
+        lv_anim_set_reverse_duration(&a, 140);
+        lv_anim_start(&a);
+    }
 }
+
+void ignore_hold() {}
 
 void format_mmss(char *buf, size_t size, int seconds)
 {

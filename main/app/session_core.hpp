@@ -3,7 +3,9 @@
 // tested on a PC. Session (session.hpp) drives it from a 1 s timer and handles threading.
 #include <stdint.h>
 
-enum class Phase : uint8_t { IDLE, STUDY, BREAK, LONG_REST };
+// READY: the break ran out and the device waits for the user to start the next session
+// (or finish the set). No timer runs.
+enum class Phase : uint8_t { IDLE, STUDY, BREAK, LONG_REST, READY };
 
 // Where the drift shown comes from: the laptop (site, idle) or the camera ticks
 enum class DriftKind : uint8_t { NONE, SITE, IDLE, CAMERA };
@@ -15,8 +17,9 @@ enum class SessionEventType : uint8_t {
     STARTED,        // a study session began
     STUDY_ENDED,    // study time ran out; a break or long rest began (result is set)
     ENDED_EARLY,    // the user ended the session mid-study; back to idle (result is set)
-    BREAK_ENDED,    // the break ran out or was ended, and the next study session began
+    BREAK_ENDED,    // the next study session began (from a break, or from READY)
     SET_ENDED,      // the long rest ran out, or the set was ended outside study; back to idle
+    BREAK_OVER,     // the break ran out: READY, waiting for the user
 };
 
 struct SessionResult {
@@ -28,6 +31,7 @@ struct SessionResult {
     int xp;             // total XP afterwards
     int level;
     int session_index;  // which session of the set this was, 1-4
+    bool test;          // scored under test timing (counts in the log, but adds no minutes)
 };
 
 // The study log kept on the device: what the Study and Status screens show.
@@ -42,6 +46,7 @@ struct SessionLog {
 };
 
 // Record a scored study session. `completed`: it ran to the end (not ended early).
+// A test-timing session counts like any other, but its 10 s "minutes" aren't added.
 void logSession(SessionLog *log, const SessionResult &result, bool completed, int day);
 // Sessions completed on `day`: 0 if it's another day, or the day is unknown
 int logToday(const SessionLog &log, int day);
@@ -66,6 +71,7 @@ struct SessionSnapshot {
     int base_multiplier;    // what the circle earns when nobody is drifting
     int xp;
     int level;
+    bool test;              // test timing (see SessionCore::TEST_PHASE_S)
 };
 
 class SessionCore {
@@ -81,6 +87,12 @@ public:
     static constexpr int CAMERA_DRIFT_S = 10;   // continuous drifting/unfocused to start
     static constexpr int CAMERA_CLEAR_S = 3;    // continuous focused to end
     static constexpr int CAMERA_TIMEOUT_S = 5;  // no tick for this long ends it
+    // Test timing, for trying the flow on the device without waiting: every study session,
+    // break and long rest lasts 30 s, and a scoring "minute" is 10 s (3 per session) with
+    // a drift minute at 3 s of drift. Everything else follows the normal rules.
+    static constexpr int TEST_PHASE_S = 30;
+    static constexpr int TEST_MINUTE_S = 10;
+    static constexpr int TEST_DRIFT_MINUTE_S = 3;
 
     // Study lengths offered by the UI
     static constexpr int STUDY_OPTIONS[] = {15, 25, 45, 60};
@@ -94,13 +106,14 @@ public:
     static int snapStudy(int study_min);
     static int levelFor(int xp) { return xp / XP_PER_LEVEL + 1; }
 
-    // Starts session 1 of a set (or the next one, if mid-set). Returns false if a phase is
-    // already running. Lengths are snapped to the allowed values.
-    bool start(int study_min, int break_min);
+    // Starts session 1 of a set, or from READY the set's next session (with these lengths).
+    // Returns false if a phase is running. Lengths are snapped to the allowed values.
+    // `test`: test timing (TEST_PHASE_S) instead of the lengths, until the next start.
+    bool start(int study_min, int break_min, bool test = false);
     // Ends the current study session now and applies the XP rules. Returns false if not studying.
     bool endEarly(SessionEvent *out);
-    // Ends the break (next study session starts) or the long rest (back to idle).
-    // Returns false outside a break or long rest.
+    // Ends the break or READY (the next study session starts) or the long rest (back to idle).
+    // Returns false outside those.
     bool endBreak(SessionEvent *out);
     // Ends the whole set: scores the session if studying (as endEarly), then idle.
     // Returns false if idle.
@@ -135,11 +148,14 @@ private:
     void setCameraDrift(bool active);
     void resetCamera();
     void tickCamera();
+    int minuteS() const { return test_ ? TEST_MINUTE_S : 60; }
+    int phaseS(Phase phase) const;
 
     Phase phase_ = Phase::IDLE;
     int index_ = 1;
     int study_min_ = 25;
     int break_min_ = 5;
+    bool test_ = false;
     int remaining_s_ = 0;
     int total_s_ = 0;
 
