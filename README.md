@@ -44,6 +44,16 @@ The timer and XP rules (`main/app/session_core.cpp`) have no ESP-IDF dependencie
 g++ -std=c++17 -Wall -I main test/session_test.cpp main/app/session_core.cpp -o session_test && ./session_test
 ```
 
+## Screen preview
+
+`tools/preview` renders every screen to 320×240 PNGs on a PC, without hardware. It compiles the real UI code and session engine against LVGL with the device's own configuration, using small stand-ins for ESP-IDF. It also prints how much LVGL memory each screen uses. Run `idf.py build` once first (it fetches LVGL and generates the config), then, with a MinGW-w64 or Linux g++ on the path:
+
+```bash
+tools/preview/build.sh
+```
+
+The PNGs land in `tools/preview/out/`.
+
 ## Laptop protocol
 
 JSON lines at 115200 baud over USB serial (and later Bluetooth SPP). The message set is documented in the frontend repo's README and will be summarized here once the link is implemented.
