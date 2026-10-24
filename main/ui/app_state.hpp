@@ -88,6 +88,8 @@ public:
 
     // Queue a change from another task (any task)
     void post(const UiCommand &cmd);
+    // The study circle's friends, from the circle task (any task). Only the latest list is kept.
+    void postFriends(const Friend *friends, int count);
 
     // ---- Actions (LVGL task) ----
     bool startSession();                    // with the current lengths and test timing
@@ -127,6 +129,7 @@ private:
     SessionResult last_result = {};
     SessionLog session_log = {};
     QueueHandle_t commands = nullptr;
+    QueueHandle_t friend_updates = nullptr;    // length 1, overwritten
     lv_timer_t *peek_timer = nullptr;
     lv_timer_t *shh_timer = nullptr;
     lv_timer_t *petted_timer = nullptr;

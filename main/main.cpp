@@ -23,6 +23,7 @@
 #include "app/session.hpp"
 #include "comms/link.hpp"
 #include "comms/bt_spp.hpp"
+#include "comms/circle.hpp"
 
 // Set to 1 to boot into the touch test screen (tap the corners to check rotation and axes)
 #ifndef POMO_TOUCH_TEST
@@ -113,6 +114,9 @@ extern "C" void app_main(void)
         ESP_LOGE(TAG, "Bluetooth failed to start: %s", esp_err_to_name(ret_bt));
     }
     log_heap("bluetooth");
+
+    circle_init();
+    log_heap("study circle");
 #endif
 
     // From here a UI that stops for 5 s logs why and reboots, instead of freezing

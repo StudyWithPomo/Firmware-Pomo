@@ -10,6 +10,7 @@
 #include <ui/navigator.hpp>
 #include <ui/pet/pet_data.h>
 #include <comms/link.hpp>
+#include <comms/circle.hpp>
 
 #include "esp_log.h"
 
@@ -70,8 +71,23 @@ AppState::AppState() {
     lv_subject_init_int(&log_version, 0);
 }
 
+struct FriendUpdate {
+    AppState::Friend friends[AppState::MAX_FRIENDS];
+    int count;
+};
+
+// Friends see the student's name, or the pet's until the laptop has sent one
+static void update_circle_name(lv_observer_t *, lv_subject_t *) {
+    AppState &s = AppState::instance();
+    const char *user = lv_subject_get_string(&s.user_name);
+    circle_set_name(user[0] ? user : lv_subject_get_string(&s.pet_name));
+}
+
 void AppState::attach() {
     commands = xQueueCreate(8, sizeof(UiCommand));
+    friend_updates = xQueueCreate(1, sizeof(FriendUpdate));
+    lv_subject_add_observer(&user_name, update_circle_name, nullptr);
+    lv_subject_add_observer(&pet_name, update_circle_name, nullptr);
     lv_timer_create(drain, DRAIN_MS, nullptr);
 }
 
@@ -144,6 +160,14 @@ void AppState::post(const UiCommand &cmd) {
     if (commands && xQueueSend(commands, &cmd, 0) != pdTRUE) ESP_LOGW(TAG, "UI command queue full");
 }
 
+void AppState::postFriends(const Friend *list, int count) {
+    if (!friend_updates) return;
+    FriendUpdate update = {};
+    update.count = count < 0 ? 0 : (count > MAX_FRIENDS ? MAX_FRIENDS : count);
+    memcpy(update.friends, list, sizeof(Friend) * update.count);
+    xQueueOverwrite(friend_updates, &update);
+}
+
 // POSIX TZ strings count hours west of UTC, so +60 east (UTC+1) is "UTC-01:00"
 static void set_timezone(int minutes_east) {
     char tz[16];
@@ -196,6 +220,10 @@ void AppState::drain(lv_timer_t *t) {
 
     UiCommand cmd;
     while (s.commands && xQueueReceive(s.commands, &cmd, 0) == pdTRUE) s.applyCommand(cmd);
+
+    FriendUpdate update;
+    if (s.friend_updates && xQueueReceive(s.friend_updates, &update, 0) == pdTRUE)
+        s.setFriends(update.friends, update.count);
 }
 
 void AppState::applySnapshot(const SessionSnapshot &snap) {
