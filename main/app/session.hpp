@@ -4,6 +4,7 @@
 // study circle). State goes out through two queues that only the UI drains:
 //   snapshots(): latest SessionSnapshot, length 1, overwritten on every change
 //   events():    SessionEvent, in order, so nothing like "study ended" is missed
+// Other tasks (the laptop link) get their own copy of the events through subscribe().
 #include "freertos/FreeRTOS.h"
 #include "freertos/queue.h"
 #include "freertos/semphr.h"
@@ -26,7 +27,9 @@ public:
     SessionSnapshot snapshot();
 
     QueueHandle_t snapshots() const { return snapshot_queue; }
-    QueueHandle_t events() const { return event_queue; }
+    QueueHandle_t events() const { return event_queues[0]; }
+    // A new event queue that receives every event from now on (call after init)
+    QueueHandle_t subscribe();
 
 private:
     Session() = default;
@@ -37,5 +40,7 @@ private:
     SessionCore core;
     SemaphoreHandle_t mutex = nullptr;
     QueueHandle_t snapshot_queue = nullptr;
-    QueueHandle_t event_queue = nullptr;
+    static const int MAX_EVENT_QUEUES = 3;
+    QueueHandle_t event_queues[MAX_EVENT_QUEUES] = {};
+    int event_queue_count = 0;
 };

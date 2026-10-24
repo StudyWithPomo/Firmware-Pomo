@@ -1,5 +1,7 @@
 #pragma once
 #include "lvgl.h"
+#include "freertos/FreeRTOS.h"
+#include "freertos/queue.h"
 #include <app/session_core.hpp>
 
 // Reactive app state. Screens observe these subjects and never read globals directly.
@@ -15,6 +17,17 @@ public:
         int pct;
     };
     static constexpr int MAX_FRIENDS = 4;
+
+    // A change requested by another task (the laptop link), applied in the LVGL task
+    struct UiCommand {
+        enum Type : uint8_t { CONFIG, PEEK, LINK_SEEN } type;
+        bool has_user, has_pet_name, has_time, has_tz;
+        char user[17];
+        char pet_name[11];
+        int8_t body, face, finish;     // -1 = unchanged
+        long epoch;
+        int tz_minutes;                // east of UTC
+    };
 
     // Pointer subject to the current epoch seconds (long)
     lv_subject_t time_subject;
@@ -52,10 +65,16 @@ public:
     lv_subject_t drift_seconds;
     lv_subject_t peek_active;       // 0/1, the timer is lit for 5 s
 
+    // Laptop link
+    lv_subject_t link_connected;    // 1 once the laptop has sent a valid message
+
     // Start draining the session queues (call once, LVGL lock held, after Session::init)
     void attach();
     // Call from the LVGL task once a second
     void update();
+
+    // Queue a change from another task (any task)
+    void post(const UiCommand &cmd);
 
     // ---- Actions (LVGL task) ----
     bool startSession();                    // with the current study/break lengths
@@ -76,11 +95,13 @@ private:
     static void drain(lv_timer_t *t);
     void applySnapshot(const SessionSnapshot &snap);
     void handleEvent(const SessionEvent &event);
+    void applyCommand(const UiCommand &cmd);
     void refreshMood();
 
     Friend friend_list[MAX_FRIENDS] = {};
     int friend_count = 0;
     SessionResult last_result = {};
+    QueueHandle_t commands = nullptr;
     lv_timer_t *peek_timer = nullptr;
     lv_timer_t *shh_timer = nullptr;
     bool shh_active = false;

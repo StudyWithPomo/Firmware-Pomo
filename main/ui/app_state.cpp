@@ -1,11 +1,15 @@
 #include "app_state.hpp"
 
+#include <stdio.h>
+#include <stdlib.h>
 #include <string.h>
+#include <time.h>
 
 #include <system/system.hpp>
 #include <app/session.hpp>
 #include <ui/navigator.hpp>
 #include <ui/pet/pet_data.h>
+#include <comms/link.hpp>
 
 #include "esp_log.h"
 
@@ -58,10 +62,46 @@ AppState::AppState() {
     lv_subject_init_string(&drift_label, drift_label_buf, drift_label_prev, sizeof(drift_label_buf), "");
     lv_subject_init_int(&drift_seconds, 0);
     lv_subject_init_int(&peek_active, 0);
+    lv_subject_init_int(&link_connected, 0);
 }
 
 void AppState::attach() {
+    commands = xQueueCreate(8, sizeof(UiCommand));
     lv_timer_create(drain, DRAIN_MS, nullptr);
+}
+
+void AppState::post(const UiCommand &cmd) {
+    if (commands && xQueueSend(commands, &cmd, 0) != pdTRUE) ESP_LOGW(TAG, "UI command queue full");
+}
+
+// POSIX TZ strings count hours west of UTC, so +60 east (UTC+1) is "UTC-01:00"
+static void set_timezone(int minutes_east) {
+    char tz[16];
+    const int west = -minutes_east;
+    snprintf(tz, sizeof(tz), "UTC%c%02d:%02d", west < 0 ? '-' : '+', abs(west) / 60, abs(west) % 60);
+    setenv("TZ", tz, 1);
+    tzset();
+}
+
+void AppState::applyCommand(const UiCommand &cmd) {
+    switch (cmd.type) {
+        case UiCommand::CONFIG:
+            if (cmd.has_user) lv_subject_copy_string(&user_name, cmd.user);
+            if (cmd.has_pet_name) lv_subject_copy_string(&pet_name, cmd.pet_name);
+            setPet(cmd.body >= 0 ? cmd.body : lv_subject_get_int(&pet_body),
+                   cmd.face >= 0 ? cmd.face : lv_subject_get_int(&pet_face),
+                   cmd.finish >= 0 ? cmd.finish : lv_subject_get_int(&pet_finish));
+            if (cmd.has_tz) set_timezone(cmd.tz_minutes);
+            if (cmd.has_time) SystemAPI::instance().setCurrentTime(cmd.epoch);
+            if (cmd.has_time || cmd.has_tz) update();
+            break;
+        case UiCommand::PEEK:
+            if ((Phase)lv_subject_get_int(&phase) == Phase::STUDY) peek();
+            break;
+        case UiCommand::LINK_SEEN:
+            lv_subject_set_int(&link_connected, 1);
+            break;
+    }
 }
 
 void AppState::update() {
@@ -83,6 +123,9 @@ void AppState::drain(lv_timer_t *t) {
 
     SessionEvent event;
     while (xQueueReceive(session.events(), &event, 0) == pdTRUE) s.handleEvent(event);
+
+    UiCommand cmd;
+    while (s.commands && xQueueReceive(s.commands, &cmd, 0) == pdTRUE) s.applyCommand(cmd);
 }
 
 void AppState::applySnapshot(const SessionSnapshot &snap) {
@@ -213,5 +256,6 @@ void AppState::setFriends(const Friend *list, int count) {
     }
     if (strcmp(lv_subject_get_string(&circle_names), names) != 0) lv_subject_copy_string(&circle_names, names);
     lv_subject_set_int(&circle_version, lv_subject_get_int(&circle_version) + 1);
+    link_send_circle();
     ESP_LOGI(TAG, "Circle: %d friend(s)", count);
 }

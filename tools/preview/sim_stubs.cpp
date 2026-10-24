@@ -118,3 +118,8 @@ int SystemAPI::setCurrentTime(long epochSeconds) const
     g_sim_epoch = epochSeconds;
     return 0;
 }
+
+// ---- Laptop link (not simulated) ----
+
+void link_send_knob(const char *) {}
+void link_send_circle() {}

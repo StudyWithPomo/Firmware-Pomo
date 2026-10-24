@@ -25,7 +25,7 @@ void Session::init()
 {
     mutex = xSemaphoreCreateMutex();
     snapshot_queue = xQueueCreate(1, sizeof(SessionSnapshot));
-    event_queue = xQueueCreate(8, sizeof(SessionEvent));
+    event_queues[event_queue_count++] = xQueueCreate(8, sizeof(SessionEvent));
 
     esp_timer_create_args_t args = {};
     args.callback = onTick;
@@ -44,9 +44,23 @@ void Session::publish(const SessionEvent *event)
     SessionSnapshot snap;
     core.snapshot(&snap);
     xQueueOverwrite(snapshot_queue, &snap);
-    if (event && xQueueSend(event_queue, event, 0) != pdTRUE) {
-        ESP_LOGW(TAG, "Event queue full, dropped event %d", (int)event->type);
+    if (!event) return;
+    for (int i = 0; i < event_queue_count; i++) {
+        if (xQueueSend(event_queues[i], event, 0) != pdTRUE)
+            ESP_LOGW(TAG, "Event queue %d full, dropped event %d", i, (int)event->type);
     }
+}
+
+QueueHandle_t Session::subscribe()
+{
+    xSemaphoreTake(mutex, portMAX_DELAY);
+    QueueHandle_t q = nullptr;
+    if (event_queue_count < MAX_EVENT_QUEUES) {
+        q = xQueueCreate(8, sizeof(SessionEvent));
+        event_queues[event_queue_count++] = q;
+    }
+    xSemaphoreGive(mutex);
+    return q;
 }
 
 void Session::onTick(void *arg)

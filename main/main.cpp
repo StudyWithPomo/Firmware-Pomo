@@ -19,6 +19,7 @@
 #include "ui/screens.hpp"
 #include "ui/theme.hpp"
 #include "app/session.hpp"
+#include "comms/link.hpp"
 
 // Set to 1 to boot into the touch test screen (tap the corners to check rotation and axes)
 #ifndef POMO_TOUCH_TEST
@@ -83,4 +84,9 @@ extern "C" void app_main(void)
     lvgl_port_unlock();
 
     log_heap("display + touch + LVGL");
+
+#if !POMO_TOUCH_TEST
+    link_init();
+    log_heap("laptop link");
+#endif
 }

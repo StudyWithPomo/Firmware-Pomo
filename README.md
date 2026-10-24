@@ -56,4 +56,36 @@ The PNGs land in `tools/preview/out/`.
 
 ## Laptop protocol
 
-JSON lines at 115200 baud over USB serial (and later Bluetooth SPP). The message set is documented in the frontend repo's README and will be summarized here once the link is implemented.
+One JSON object per line, 115200 baud, over the USB serial port (Bluetooth SPP will carry the same lines). The device is the source of truth for the timer, focus state, XP and level; the laptop reports drift and settings. Lines that aren't JSON, and unknown messages, are ignored, so the device's own log lines on the same port are harmless.
+
+**Laptop → device**
+
+```json
+{"t":"drift","active":true,"label":"YouTube","kind":"site"}
+{"t":"drift","active":false}
+{"t":"config","user":"Sidak","pet":{"name":"Mochi","body":"bot","face":"plain","color":"brass"},"time":1792790040,"tz":-240}
+{"t":"start","study":25,"brk":5}
+{"t":"peek"}
+```
+
+- `config`: `time` (epoch seconds) and `tz` (minutes east of UTC, i.e. `-new Date().getTimezoneOffset()`) are optional and set the device clock. `level`, `xp` and `hearts` are ignored.
+- `start` begins a session only if none is running; lengths snap to the allowed values.
+- `end`, `break` and `finished` are ignored: the device runs the session.
+
+**Device → laptop**
+
+```json
+{"t":"hello","fw":"0.5"}
+{"t":"start","study":25,"brk":5,"session":1}
+{"t":"state","left":522,"total":1500,"phase":"study","focus":"focused","session":1,"drift":"","drift_s":0,"mult":2,"xp":340,"level":1}
+{"t":"end","pct":90,"xp":44,"level":3,"total_xp":1044,"focused_min":22,"elapsed_min":25,"penalty":false,"early":false}
+{"t":"circle","friends":[{"name":"Ava","focused":true,"pct":0}]}
+{"t":"knob","ev":"press"}
+```
+
+- `state` is sent every second during a session or break (`phase`: `study`, `break`, `long_rest`), and once when it goes back to `idle`.
+- `start` is sent for every session, including ones started on the device and the next session after a break.
+- `end.xp` is the XP change from that session (negative after the under-50% penalty); `total_xp` is the new total.
+- `knob press` means the user peeked at the timer on the device.
+
+**Changes the frontend needs:** send `time`/`tz` in `config`; treat `start`, `state` and `end` from the device as the session (instead of running its own timer); drop hearts. With no laptop connected the device runs sessions alone and counts every minute as focused.

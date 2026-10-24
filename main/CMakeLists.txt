@@ -13,6 +13,8 @@ idf_component_register(
     "app/session_core.cpp"
     "app/session.cpp"
 
+    "comms/link.cpp"
+
     "ui/app_state.cpp"
     "ui/navigator.cpp"
     "ui/ui_root.cpp"

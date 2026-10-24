@@ -14,6 +14,7 @@
 #include <ui/app_state.hpp>
 #include <ui/theme.hpp>
 #include <ui/pet/pet_view.hpp>
+#include <comms/link.hpp>
 
 #include "lvgl.h"
 
@@ -110,7 +111,9 @@ static void update_lamps(lv_observer_t *observer, lv_subject_t *subject)
 
 static void on_press(lv_event_t *e)
 {
-    if (!ui.modal) AppState::instance().peek();
+    if (ui.modal) return;
+    AppState::instance().peek();
+    link_send_knob("press");
 }
 
 static void on_pet_tap(lv_event_t *e)
