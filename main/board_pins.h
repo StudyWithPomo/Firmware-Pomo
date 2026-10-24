@@ -45,3 +45,27 @@
 
 // ---- Status lamp: not fitted yet ----
 #define HAS_LAMP        0
+
+// config for BOARD #2 (compact)
+/*
+// ---- Display: ILI9341 on VSPI (shared with touch) ----
+#define PIN_LCD_MOSI    23
+#define PIN_LCD_CLK     18
+#define PIN_LCD_CS      5
+#define PIN_LCD_DC      21
+#define PIN_LCD_RST     22
+// Backlight tied to 3V3, no GPIO
+
+// ---- Touch: XPT2046 on the same bus ----
+#define PIN_TOUCH_MOSI  23
+#define PIN_TOUCH_MISO  19
+#define PIN_TOUCH_CLK   18
+#define PIN_TOUCH_CS    4
+#define PIN_TOUCH_IRQ   15
+
+// ---- Buzzer (passive, LEDC PWM) ----
+#define HAS_BUZZER      1
+#define PIN_BUZZER      2
+
+NO ROTARY ENCODER
+*/
