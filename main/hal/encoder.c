@@ -41,6 +41,8 @@ static bool s_btn_hold_fired;
 // LVGL read callback state (LVGL task only)
 static bool s_click_down;
 
+#if HAS_ENCODER
+
 static void button_poll(void *arg)
 {
     const bool raw_down = gpio_get_level(PIN_ENC_BTN) == 0; // active low, pull-up
@@ -157,9 +159,11 @@ static esp_err_t button_init(void)
     ESP_RETURN_ON_ERROR(esp_timer_start_periodic(timer, BTN_POLL_MS * 1000), TAG, "button timer start");
     return ESP_OK;
 }
+#endif
 
 esp_err_t encoder_init(void)
 {
+#if HAS_ENCODER
     ESP_RETURN_ON_ERROR(pcnt_init(), TAG, "pcnt");
     ESP_RETURN_ON_ERROR(button_init(), TAG, "button");
 
@@ -169,10 +173,18 @@ esp_err_t encoder_init(void)
 
     ESP_LOGI(TAG, "Encoder on A=%d B=%d BTN=%d", PIN_ENC_A, PIN_ENC_B, PIN_ENC_BTN);
     return ESP_OK;
+#else
+    // Boards without an encoder: nothing to set up, no PCNT unit or button
+    // poll timer to leave running.
+    return ESP_OK;
+#endif
 }
 
 lv_indev_t *encoder_get_indev(void)
 {
+#if !HAS_ENCODER
+    return NULL;
+#endif
     return s_indev;
 }
 
