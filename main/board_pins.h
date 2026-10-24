@@ -14,7 +14,7 @@
 
 // ---- Touch: XPT2046 on SPI3 (VSPI) ----
 #define PIN_TOUCH_MOSI  23
-#define PIN_TOUCH_MISO  21
+#define PIN_TOUCH_MISO  19
 #define PIN_TOUCH_CLK   18
 #define PIN_TOUCH_CS    4
 #define PIN_TOUCH_IRQ   27
