@@ -48,6 +48,7 @@ static void update_choices(lv_observer_t *observer, lv_subject_t *subject)
         if (swatches) {
             lv_obj_set_style_outline_width(item, on ? 2 : 0, 0);
         } else {
+            lv_obj_set_style_bg_color(item, c(BRASS), 0);
             lv_obj_set_style_bg_opa(item, on ? LV_OPA_COVER : LV_OPA_TRANSP, 0);
             lv_obj_t *text = lv_obj_get_child(item, 0);
             lv_obj_set_style_text_color(text, c(on ? PANEL : BRASS), 0);
@@ -98,8 +99,9 @@ static lv_obj_t *option_row(lv_obj_t *parent, int opt, const char *name)
     lv_obj_set_style_pad_all(r, 2, 0);
     lv_obj_t *ptr = pointer(r, &font_fell_12);
     lv_obj_t *name_label = label(r, name, &font_fell_12);
-    lv_obj_set_width(name_label, 38);
-    ui.choices[opt] = row(r, LV_FLEX_ALIGN_START, opt == OPT_FINISH ? 5 : 4);
+    lv_obj_set_width(name_label, 34);
+    ui.choices[opt] = row(r, LV_FLEX_ALIGN_START, opt == OPT_FINISH ? 6 : 4);
+    lv_obj_set_style_pad_all(ui.choices[opt], 3, 0); // room for the chosen swatch's outline
 
     focusable_outline(r, ui.group, ptr);
     lv_obj_add_event_cb(r, on_row_click, LV_EVENT_CLICKED, nullptr);
@@ -120,16 +122,17 @@ void screen_workshop(lv_obj_t *parent, lv_group_t *group)
     lv_subject_add_observer_obj(&state.pet_name, update_title, title, nullptr);
     label(top, "press to save", &font_fell_12, MUTED);
 
-    lv_obj_t *middle = row(content, LV_FLEX_ALIGN_START, 10);
+    lv_obj_t *middle = row(content, LV_FLEX_ALIGN_START, 6);
     lv_obj_set_width(middle, LV_PCT(100));
-    lv_obj_t *port = porthole(middle, 86);
+    lv_obj_t *port = porthole(middle, 80);
     pet_view_create(port, 64, PET_MOOD_HAPPY);
 
     lv_obj_t *rows = column(middle, 8);
+    lv_obj_set_style_pad_all(rows, 5, 0); // room for the knob outline
     lv_obj_t *first = option_row(rows, OPT_BODY, "Body");
-    for (const char *name : BODY_NAMES) chip(ui.choices[OPT_BODY], name, &font_caslon_12);
+    for (const char *name : BODY_NAMES) lv_obj_set_style_pad_hor(chip(ui.choices[OPT_BODY], name, &font_caslon_12), 5, 0);
     option_row(rows, OPT_FACE, "Face");
-    for (const char *name : FACE_NAMES) chip(ui.choices[OPT_FACE], name, &font_caslon_12);
+    for (const char *name : FACE_NAMES) lv_obj_set_style_pad_hor(chip(ui.choices[OPT_FACE], name, &font_caslon_12), 5, 0);
     option_row(rows, OPT_FINISH, "Finish");
     for (int i = 0; i < PET_FINISH_COUNT; i++) {
         lv_obj_t *swatch = box(ui.choices[OPT_FINISH]);

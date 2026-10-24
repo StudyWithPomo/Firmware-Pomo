@@ -29,6 +29,7 @@ public:
 
     ScreenID getCurrent() const { return current; }
     size_t historyDepth() const { return history.size(); }
+    lv_group_t *currentGroup() const { return group; }
 
 private:
     explicit Navigator(std::map<ScreenID, ScreenBuilder> registry)

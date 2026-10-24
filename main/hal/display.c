@@ -60,14 +60,15 @@ void display_set_brightness(uint8_t pct)
 
 esp_err_t init_ili9341_with_lvgl(void)
 {
-    const spi_host_device_t LCD_SPI_HOST = SPI2_HOST;
+    const spi_host_device_t LCD_SPI_HOST = BOARD_SPI_HOST;
 
-    // 1) init SPI bus
+    // 1) init the SPI bus the display shares with touch (touch_init_xpt2046 joins it)
     spi_bus_config_t buscfg = ILI9341_PANEL_BUS_SPI_CONFIG(
-        PIN_LCD_CLK,
-        PIN_LCD_MOSI,
+        PIN_SPI_CLK,
+        PIN_SPI_MOSI,
         32000
     );
+    buscfg.miso_io_num = PIN_SPI_MISO; // for touch readings
 
     ESP_ERROR_CHECK(spi_bus_initialize(LCD_SPI_HOST, &buscfg, SPI_DMA_CH_AUTO));
 

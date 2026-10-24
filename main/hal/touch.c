@@ -15,7 +15,8 @@
 
 static const char *TAG = "touch";
 
-#define TOUCH_SPI_HOST  SPI3_HOST
+// The display driver initializes this bus; touch adds itself as a second device
+#define TOUCH_SPI_HOST  BOARD_SPI_HOST
 
 /* Panel native (portrait) size the calibration maps to */
 #define DISP_HOR_RES    240
@@ -73,22 +74,7 @@ esp_err_t touch_init_xpt2046(void)
 {
     esp_err_t ret;
 
-    /* 1. Initialize the SPI bus for touch controller */
-    spi_bus_config_t buscfg = {
-        .mosi_io_num = PIN_TOUCH_MOSI, // XPT2046 DIN
-        .miso_io_num = PIN_TOUCH_MISO, // XPT2046 DOUT
-        .sclk_io_num = PIN_TOUCH_CLK,  // XPT2046 CLK
-        .quadwp_io_num = -1,
-        .quadhd_io_num = -1,
-    };
-
-    ret = spi_bus_initialize(TOUCH_SPI_HOST, &buscfg, SPI_DMA_CH_AUTO);
-    if (ret != ESP_OK) {
-        ESP_LOGE(TAG, "Failed to init SPI bus: %s", esp_err_to_name(ret));
-        return ret;
-    }
-
-    /* 2. Create SPI IO device for XPT2046 */
+    /* 1. Join the display's SPI bus (call after init_ili9341_with_lvgl) as a second device */
     esp_lcd_panel_io_handle_t tp_io_handle = NULL;
 
     esp_lcd_panel_io_spi_config_t io_config = {
@@ -107,7 +93,7 @@ esp_err_t touch_init_xpt2046(void)
         return ret;
     }
 
-    /* 3. Create XPT2046 touch driver */
+    /* 2. Create XPT2046 touch driver */
     esp_lcd_touch_config_t touch_cfg = {
         .x_max = DISP_HOR_RES,
         .y_max = DISP_VER_RES,
@@ -131,7 +117,7 @@ esp_err_t touch_init_xpt2046(void)
         return ret;
     }
 
-    /* 4. Register in LVGL as input device */
+    /* 3. Register in LVGL as input device */
     lvgl_port_lock(0);
     s_lv_indev = lv_indev_create();
     lv_indev_set_type(s_lv_indev, LV_INDEV_TYPE_POINTER);

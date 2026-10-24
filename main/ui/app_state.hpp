@@ -63,7 +63,7 @@ public:
     void endSessionEarly();
     void peek();                            // light the timer for 5 s
     void shh();                             // the pet hushes for 2 s
-    void setStudyLength(int study_min);     // keeps the break in range
+    void setStudyLength(int study_min);     // resets the break to 1/5 of it
     void setBreakLength(int break_min);
     void setPet(int body, int face, int finish);
     void setFriends(const Friend *friends, int count);

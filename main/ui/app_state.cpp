@@ -186,7 +186,9 @@ void AppState::shh() {
 void AppState::setStudyLength(int study) {
     study = SessionCore::snapStudy(study);
     lv_subject_set_int(&study_min, study);
-    lv_subject_set_int(&break_min, SessionCore::clampBreak(study, lv_subject_get_int(&break_min)));
+    // The break resets to the classic 1/5 (25 -> 5, 45 -> 9), so turning through 45 and
+    // back to 25 lands on 25 / 5 again
+    lv_subject_set_int(&break_min, SessionCore::breakMin(study));
 }
 
 void AppState::setBreakLength(int brk) {

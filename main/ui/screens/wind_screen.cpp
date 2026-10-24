@@ -99,7 +99,7 @@ void screen_wind(lv_obj_t *parent, lv_group_t *group)
     lv_obj_add_event_cb(study, on_study_click, LV_EVENT_CLICKED, nullptr);
 
     s_break_row = value_row(content, group, "Break");
-    lv_obj_t *right = row(s_break_row, LV_FLEX_ALIGN_END, 8);
+    lv_obj_t *right = row(s_break_row, LV_FLEX_ALIGN_START, 8);
     lv_obj_t *brk = label(right, "", &font_plex_22, VERDIGRIS_HI);
     lv_subject_add_observer_obj(&state.break_min, update_break, brk, nullptr);
     lv_obj_t *range = label(right, "", &font_caslon_12, MUTED);
