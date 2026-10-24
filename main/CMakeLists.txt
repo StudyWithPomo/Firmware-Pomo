@@ -2,7 +2,8 @@ idf_component_register(
     LANGUAGE C CXX
 
     SRCS 
-    "main.cpp" 
+    "main.cpp"
+    "board.c"
     "utilities.cpp"
 
     "hal/display.c" 

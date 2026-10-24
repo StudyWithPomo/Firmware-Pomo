@@ -3,6 +3,7 @@
 // Calibration maps raw readings to the panel's native portrait 240x320. LVGL 9 rotates
 // pointer input to match the display rotation, so this stays portrait after the display
 // goes landscape. If axes come out swapped or mirrored, fix touch_cfg.flags only.
+// One of the two displays is mounted flipped: board()->touch_flip mirrors both axes.
 
 #include "esp_err.h"
 #include "esp_log.h"
@@ -11,7 +12,7 @@
 #include "driver/spi_common.h"
 #include "esp_lcd_touch_xpt2046.h" // XPT2046 driver
 
-#include "board_pins.h"
+#include "board.h"
 
 // The calibration below expects raw 12-bit readings. With this option on, the driver would
 // scale them to screen coordinates first and every tap would clamp to one corner.
@@ -97,7 +98,7 @@ esp_err_t touch_init_xpt2046(void)
     esp_lcd_panel_io_handle_t tp_io_handle = NULL;
 
     esp_lcd_panel_io_spi_config_t io_config = {
-        .cs_gpio_num = PIN_TOUCH_CS,
+        .cs_gpio_num = board()->touch_cs,
         .dc_gpio_num = -1,  // Not used for XPT2046
         .spi_mode = 0,
         .pclk_hz = 2 * 1000 * 1000,   // 2 MHz
@@ -117,15 +118,15 @@ esp_err_t touch_init_xpt2046(void)
         .x_max = DISP_HOR_RES,
         .y_max = DISP_VER_RES,
         .rst_gpio_num = -1,
-        .int_gpio_num = PIN_TOUCH_IRQ,
+        .int_gpio_num = board()->touch_irq,
         .levels = {
             .reset = 0,
             .interrupt = 0, // IRQ active low
         },
         .flags = {
             .swap_xy = false,
-            .mirror_x = true,
-            .mirror_y = false,
+            .mirror_x = !board()->touch_flip,
+            .mirror_y = board()->touch_flip,
         },
         .process_coordinates = touch_calibration,
     };
