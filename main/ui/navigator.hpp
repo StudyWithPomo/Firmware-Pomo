@@ -1,37 +1,53 @@
 #pragma once
 
-#include <functional>
 #include <map>
+#include <vector>
 
 #include "lvgl.h"
 #include "screens.hpp"
 
-typedef void (*ScreenBuilder)(lv_obj_t* parent);
+// Called when the knob is held for 2 s. Defaults to back() on every screen.
+typedef void (*HoldHandler)();
 
 class Navigator {
 public:
-    Navigator(std::map<ScreenID, ScreenBuilder> registry)
-        : registry(registry) {}
+    static Navigator& instance();
 
-    static Navigator& instance() {
-        static Navigator inst({
-            {ScreenID::LOCK, screen_lock},
-            {ScreenID::HOME, screen_home},
-            {ScreenID::PHONE, screen_phone},
-            {ScreenID::SMS, screen_sms},
-            {ScreenID::CONTACTS, screen_contacts},
-            {ScreenID::SETTINGS, screen_settings}
-        });
-        return inst;
-    }
+    // Hook up the encoder (call once, with the LVGL lock held)
+    void init(lv_indev_t *encoder);
 
+    // Go to a screen, remembering the current one for back()
     void navigate(ScreenID id);
+    // Go to a screen and forget the history (e.g. entering a session)
+    void reset(ScreenID id);
+    // Return to the previous screen, if there is one
+    void back();
 
-    ScreenID getCurrent() const {
-        return current;
-    }
+    // Override what a 2 s hold does on the current screen. Call from a screen builder;
+    // it resets to back() on every navigation.
+    void setHoldHandler(HoldHandler handler) { hold_handler = handler; }
+
+    ScreenID getCurrent() const { return current; }
+    size_t historyDepth() const { return history.size(); }
 
 private:
-    ScreenID current;
+    explicit Navigator(std::map<ScreenID, ScreenBuilder> registry)
+        : registry(registry) {}
+
+    void request(ScreenID id);
+    void show(ScreenID id);
+    static void showPending(void *);
+    static void onHold();
+
     std::map<ScreenID, ScreenBuilder> registry;
+    std::vector<ScreenID> history;
+    ScreenID current = ScreenID::BOOT;
+    bool has_current = false;
+
+    ScreenID pending = ScreenID::BOOT;
+    bool has_pending = false;
+
+    lv_indev_t *encoder = nullptr;
+    lv_group_t *group = nullptr;
+    HoldHandler hold_handler = nullptr;
 };

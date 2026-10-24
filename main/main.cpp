@@ -11,6 +11,7 @@
 
 #include "hal/display.h"
 #include "hal/touch.h"
+#include "hal/encoder.h"
 
 #include "ui/app_state.hpp"
 #include "ui/ui_root.hpp"
@@ -60,11 +61,17 @@ extern "C" void app_main(void)
 
     // The LVGL task is already running, so every LVGL call from here needs the lock
     lvgl_port_lock(0);
+    esp_err_t ret_enc = encoder_init();
+    if (ret_enc != ESP_OK)
+    {
+        ESP_LOGE(TAG, "Failed to initialize encoder: %s", esp_err_to_name(ret_enc));
+    }
     ui_root_init();
 #if POMO_TOUCH_TEST
     screen_touch_test(ui_get_content_area());
 #else
-    Navigator::instance().navigate(ScreenID::LOCK);
+    Navigator::instance().init(encoder_get_indev());
+    Navigator::instance().reset(ScreenID::BOOT);
 #endif
     lv_timer_create([](lv_timer_t* t){ AppState::instance().update(); }, 1000, nullptr);
     lvgl_port_unlock();

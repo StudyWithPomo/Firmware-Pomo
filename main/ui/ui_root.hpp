@@ -1,11 +1,8 @@
 #pragma once
 #include "lvgl.h"
 
-// Initialize the root UI components (System Bar and Content Area)
+// Initialize the root UI (black screen + full-size content area)
 void ui_root_init();
 
-// Get the content area object
+// Get the content area object that screens are built into
 lv_obj_t *ui_get_content_area();
-
-// Toggle displaying time
-void ui_toggle_time_display(bool enable);

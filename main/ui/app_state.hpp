@@ -1,22 +1,16 @@
 #pragma once
-#include "navigator.hpp"
 #include "lvgl.h"
 
+// Reactive app state. Screens observe these subjects and never read globals directly.
+// Rewritten for the study flow in a later milestone; for now it only tracks the clock.
 class AppState {
 public:
     static AppState& instance();
 
+    // Pointer subject to the current epoch seconds (long)
     lv_subject_t time_subject;
-    lv_subject_t battery_subject;
 
-    lv_subject_t cell_subject;
-
-    void unlockPhone();
-    void lockPhone();
-
-    void returnToHome();
-    void openSettings();
-
+    // Call from the LVGL task (an lv_timer) once a second
     void update();
 
 private:
