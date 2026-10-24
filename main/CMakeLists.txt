@@ -14,6 +14,7 @@ idf_component_register(
     "app/session.cpp"
 
     "comms/link.cpp"
+    "comms/bt_spp.cpp"
 
     "ui/app_state.cpp"
     "ui/navigator.cpp"

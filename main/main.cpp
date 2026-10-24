@@ -4,6 +4,7 @@
 #include "esp_system.h"
 #include "esp_log.h"
 #include "esp_heap_caps.h"
+#include "nvs_flash.h"
 #include "lvgl.h"
 #include "esp_lvgl_port.h"
 
@@ -20,6 +21,7 @@
 #include "ui/theme.hpp"
 #include "app/session.hpp"
 #include "comms/link.hpp"
+#include "comms/bt_spp.hpp"
 
 // Set to 1 to boot into the touch test screen (tap the corners to check rotation and axes)
 #ifndef POMO_TOUCH_TEST
@@ -41,6 +43,15 @@ extern "C" void app_main(void)
     esp_log_level_set("*", ESP_LOG_INFO);
     ESP_LOGI(TAG, "Starting Pomo...");
     log_heap("boot");
+
+    // NVS: Bluetooth keeps pairing keys here (and saved progress will live here too)
+    esp_err_t nvs = nvs_flash_init();
+    if (nvs == ESP_ERR_NVS_NO_FREE_PAGES || nvs == ESP_ERR_NVS_NEW_VERSION_FOUND)
+    {
+        ESP_ERROR_CHECK(nvs_flash_erase());
+        nvs = nvs_flash_init();
+    }
+    ESP_ERROR_CHECK(nvs);
 
     // Initialize the ILI9341 display with LVGL
     ESP_LOGI(TAG, "Initializing display...");
@@ -88,5 +99,13 @@ extern "C" void app_main(void)
 #if !POMO_TOUCH_TEST
     link_init();
     log_heap("laptop link");
+
+    esp_err_t ret_bt = bt_spp_init();
+    if (ret_bt != ESP_OK)
+    {
+        // Keep running: the device works without Bluetooth, over USB only
+        ESP_LOGE(TAG, "Bluetooth failed to start: %s", esp_err_to_name(ret_bt));
+    }
+    log_heap("bluetooth");
 #endif
 }

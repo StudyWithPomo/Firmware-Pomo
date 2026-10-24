@@ -1,7 +1,7 @@
 #pragma once
 // Laptop link: one JSON object per line, 115200 baud, UTF-8.
 //
-// Every transport (USB serial now, Bluetooth SPP later) feeds bytes into its own
+// Every transport (USB serial, Bluetooth SPP) feeds bytes into its own
 // LineAssembler, and complete lines go to one handler. Outgoing messages are written to
 // every transport. Bad or unknown lines are ignored, so ESP_LOG output on the same UART is
 // harmless to the laptop.
@@ -30,6 +30,7 @@ void link_init();
 void link_send(const char *json);
 
 // Convenience senders (any task)
+void link_send_hello();    // at boot, and whenever a laptop connects over Bluetooth
 void link_send_knob(const char *ev);
 void link_send_circle();   // from AppState's friends; call from the LVGL task
 

@@ -1,5 +1,6 @@
 #include "link.hpp"
 
+#include <stdlib.h>
 #include <string.h>
 
 #include "cJSON.h"
@@ -13,9 +14,11 @@
 #include <ui/app_state.hpp>
 #include <ui/pet/pet_data.h>
 
+#include "bt_spp.hpp"
+
 static const char *TAG = "link";
 
-#define POMO_FW_VERSION "0.5"
+#define POMO_FW_VERSION "0.8"
 
 static const uart_port_t LINK_UART = UART_NUM_0;  // the USB serial port, shared with logs
 static const int UART_RX_BUF = 1024;
@@ -37,12 +40,21 @@ static void send_json(cJSON *obj)
 void link_send(const char *json)
 {
     if (!s_tx_mutex) return;
+    // One buffer per line, so each transport gets it in a single write. The leading newline
+    // starts a fresh line on USB in case a log line is half-written.
+    const size_t n = strlen(json);
+    char *line = (char *)malloc(n + 3);
+    if (!line) return;
+    line[0] = '\n';
+    memcpy(line + 1, json, n);
+    line[n + 1] = '\n';
+    line[n + 2] = '\0';
+
     xSemaphoreTake(s_tx_mutex, portMAX_DELAY);
-    // Start on a fresh line in case a log line is half-written
-    uart_write_bytes(LINK_UART, "\n", 1);
-    uart_write_bytes(LINK_UART, json, strlen(json));
-    uart_write_bytes(LINK_UART, "\n", 1);
+    uart_write_bytes(LINK_UART, line, n + 2);
+    bt_spp_send(line + 1, n + 1);
     xSemaphoreGive(s_tx_mutex);
+    free(line);
 }
 
 void link_send_knob(const char *ev)
@@ -80,7 +92,7 @@ static const char *phase_name(Phase p)
     }
 }
 
-static void send_hello()
+void link_send_hello()
 {
     cJSON *o = cJSON_CreateObject();
     cJSON_AddStringToObject(o, "t", "hello");
@@ -250,10 +262,11 @@ static void link_task(void *arg)
     TickType_t next_state = xTaskGetTickCount();
     Phase last_phase = Phase::IDLE;
 
-    send_hello();
+    link_send_hello();
     for (;;) {
         const int n = uart_read_bytes(LINK_UART, rx, sizeof(rx), pdMS_TO_TICKS(100));
         if (n > 0) usb.feed(rx, (size_t)n);
+        if (bt_spp_take_new_connection()) link_send_hello();
 
         SessionEvent event;
         while (xQueueReceive(s_events, &event, 0) == pdTRUE) {

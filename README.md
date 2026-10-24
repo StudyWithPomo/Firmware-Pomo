@@ -2,7 +2,7 @@
 
 Firmware for **Study Buddy**: a steampunk clockwork pet on your desk that grows when you focus. It runs a hidden Pomodoro timer, owns your XP and level, and reacts when the laptop dashboard ([Frontend-Pomo](https://github.com/StudyWithPomo/Frontend-Pomo)) reports a drift.
 
-Built on [Cube OS v1 alpha](https://github.com/ibbydiggy250/Cube_OS_v1_alpha) (ESP-IDF + LVGL 9). Work in progress: the full screen flow and session timer run on the device; the laptop link, saved progress, study circle and Bluetooth come next.
+Built on [Cube OS v1 alpha](https://github.com/ibbydiggy250/Cube_OS_v1_alpha) (ESP-IDF + LVGL 9). Work in progress: the screens, session timer and laptop link (USB and Bluetooth) run on the device; saved progress, the study circle and the buzzer/battery come next.
 
 ## Hardware
 
@@ -56,7 +56,9 @@ The PNGs land in `tools/preview/out/`.
 
 ## Laptop protocol
 
-One JSON object per line, 115200 baud, over the USB serial port (Bluetooth SPP will carry the same lines). The device is the source of truth for the timer, focus state, XP and level; the laptop reports drift and settings. Lines that aren't JSON, and unknown messages, are ignored, so the device's own log lines on the same port are harmless.
+One JSON object per line, over the USB serial port (115200 baud) or Bluetooth. Both work at the same time and carry the same messages.
+
+**Bluetooth:** the device is discoverable as **Pomo-XXXX** (Bluetooth Classic SPP, the last digits come from its address). Pair it in the laptop's Bluetooth settings; there's no PIN (if one is asked for, it's 1234). Windows then adds a "Standard Serial over Bluetooth link" COM port; open that one (the outgoing port) from the dashboard like the USB port. The device is the source of truth for the timer, focus state, XP and level; the laptop reports drift and settings. Lines that aren't JSON, and unknown messages, are ignored, so the device's own log lines on the same port are harmless.
 
 **Laptop → device**
 
