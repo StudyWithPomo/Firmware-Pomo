@@ -13,6 +13,15 @@
 
 #include "board_pins.h"
 
+// The calibration below expects raw 12-bit readings. With this option on, the driver would
+// scale them to screen coordinates first and every tap would clamp to one corner.
+#if CONFIG_XPT2046_CONVERT_ADC_TO_COORDS
+#error "Turn off CONFIG_XPT2046_CONVERT_ADC_TO_COORDS: touch.c calibrates raw readings itself"
+#endif
+
+// Log each new touch's raw and mapped position, for calibrating a new panel
+#define TOUCH_LOG_TAPS  1
+
 static const char *TAG = "touch";
 
 // The display driver initializes this bus; touch adds itself as a second device
@@ -24,6 +33,7 @@ static const char *TAG = "touch";
 
 static esp_lcd_touch_handle_t s_touch = NULL;
 lv_indev_t *s_lv_indev = NULL;
+static bool s_tap_logged = false;
 
 static void touch_driver_read(lv_indev_t *indev, lv_indev_data_t *data)
 {
@@ -41,6 +51,7 @@ static void touch_driver_read(lv_indev_t *indev, lv_indev_data_t *data)
         data->point.y = touch_data.y;
     } else {
         data->state = LV_INDEV_STATE_RELEASED;
+        s_tap_logged = false;
     }
 }
 
@@ -58,7 +69,8 @@ static void touch_calibration(
     uint8_t max_point_num
 ){
     if (*point_num == 0) return;
-    
+    const uint16_t raw_x = *x, raw_y = *y;
+
     // clamp raw values
     if (*x < raw_x_min) *x = raw_x_min;
     if (*x > raw_x_max) *x = raw_x_max;
@@ -68,6 +80,13 @@ static void touch_calibration(
     // map raw -> LVGL coords
     *x = (*x - raw_x_min) * DISP_HOR_RES / (raw_x_max - raw_x_min);
     *y = (*y - raw_y_min) * DISP_VER_RES / (raw_y_max - raw_y_min);
+
+#if TOUCH_LOG_TAPS
+    if (!s_tap_logged) {
+        s_tap_logged = true;
+        ESP_LOGI(TAG, "tap raw x=%u y=%u -> panel x=%u y=%u", raw_x, raw_y, *x, *y);
+    }
+#endif
 }
 
 esp_err_t touch_init_xpt2046(void)
