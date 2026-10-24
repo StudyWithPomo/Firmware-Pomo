@@ -1,57 +1,89 @@
 #include "display.h"
 
+#include "board_pins.h"
+
 #include "driver/spi_master.h"
+#include "driver/ledc.h"
 #include "esp_lcd_panel_io.h"
 #include "esp_lcd_panel_vendor.h"
 #include "esp_lcd_ili9341.h"
 #include "esp_lvgl_port.h"
-#include "driver/gpio.h"
+#include "esp_log.h"
+#include "esp_check.h"
 
 static const char *TAG = "display";
+
+// Panel native size (portrait). LVGL rotates it to 320x240 landscape.
+#define LCD_H_RES 240
+#define LCD_V_RES 320
+
+#define BL_LEDC_MODE     LEDC_LOW_SPEED_MODE
+#define BL_LEDC_TIMER    LEDC_TIMER_0
+#define BL_LEDC_CHANNEL  LEDC_CHANNEL_0
+#define BL_LEDC_FREQ_HZ  5000
+#define BL_LEDC_RES      LEDC_TIMER_8_BIT
 
 esp_lcd_panel_handle_t panel_handle;
 static esp_lcd_panel_io_handle_t io_handle;
 static lv_display_t *display_handle;
 
+static esp_err_t backlight_init(void)
+{
+    const ledc_timer_config_t timer_cfg = {
+        .speed_mode = BL_LEDC_MODE,
+        .duty_resolution = BL_LEDC_RES,
+        .timer_num = BL_LEDC_TIMER,
+        .freq_hz = BL_LEDC_FREQ_HZ,
+        .clk_cfg = LEDC_AUTO_CLK,
+    };
+    ESP_RETURN_ON_ERROR(ledc_timer_config(&timer_cfg), TAG, "backlight timer");
+
+    const ledc_channel_config_t channel_cfg = {
+        .gpio_num = PIN_LCD_BL,
+        .speed_mode = BL_LEDC_MODE,
+        .channel = BL_LEDC_CHANNEL,
+        .timer_sel = BL_LEDC_TIMER,
+        .duty = 0,
+        .hpoint = 0,
+    };
+    ESP_RETURN_ON_ERROR(ledc_channel_config(&channel_cfg), TAG, "backlight channel");
+    return ESP_OK;
+}
+
+void display_set_brightness(uint8_t pct)
+{
+    if (pct > 100) pct = 100;
+    const uint32_t max_duty = (1u << BL_LEDC_RES) - 1;
+    ledc_set_duty(BL_LEDC_MODE, BL_LEDC_CHANNEL, max_duty * pct / 100);
+    ledc_update_duty(BL_LEDC_MODE, BL_LEDC_CHANNEL);
+}
+
 esp_err_t init_ili9341_with_lvgl(void)
 {
-    esp_err_t ret;
-
-    const int PIN_MOSI = 14;
-    const int PIN_CLK = 27;
-    const int PIN_CS = 13;
-    const int PIN_DC = 12;
-    const int PIN_RST = 2;
-    const int PIN_BCKL = 26;
-    const int PIN_MISO = -1;
-
-    const int DISP_WIDTH = 240;
-    const int DISP_HEIGHT = 320;
-
-    const spi_host_device_t SPI_HOST = SPI2_HOST;
+    const spi_host_device_t LCD_SPI_HOST = SPI2_HOST;
 
     // 1) init SPI bus
     spi_bus_config_t buscfg = ILI9341_PANEL_BUS_SPI_CONFIG(
-        PIN_CLK,
-        PIN_MOSI,
+        PIN_LCD_CLK,
+        PIN_LCD_MOSI,
         32000
     );
 
-    ESP_ERROR_CHECK(spi_bus_initialize(SPI_HOST, &buscfg, SPI_DMA_CH_AUTO));
+    ESP_ERROR_CHECK(spi_bus_initialize(LCD_SPI_HOST, &buscfg, SPI_DMA_CH_AUTO));
 
     // 2) create panel io handle for SPI
     esp_lcd_panel_io_spi_config_t io_config = ILI9341_PANEL_IO_SPI_CONFIG(
-        PIN_CS,
-        PIN_DC,
+        PIN_LCD_CS,
+        PIN_LCD_DC,
         NULL,
         NULL);
     io_config.pclk_hz = 40 * 1000 * 1000;
-        
-    ESP_ERROR_CHECK(esp_lcd_new_panel_io_spi(SPI_HOST, &io_config, &io_handle));
+
+    ESP_ERROR_CHECK(esp_lcd_new_panel_io_spi(LCD_SPI_HOST, &io_config, &io_handle));
 
     // 3) create the ILI9341 panel driver
     esp_lcd_panel_dev_config_t ili_cfg = {
-        .reset_gpio_num = PIN_RST,
+        .reset_gpio_num = PIN_LCD_RST,
         .rgb_ele_order = LCD_RGB_ELEMENT_ORDER_BGR,
         .bits_per_pixel = 16,
     };
@@ -64,23 +96,23 @@ esp_err_t init_ili9341_with_lvgl(void)
     ESP_ERROR_CHECK(esp_lcd_panel_set_gap(panel_handle, 0, 0));
     ESP_ERROR_CHECK(esp_lcd_panel_disp_on_off(panel_handle, true));
 
-    // 5) simple backlight enable (GPIO)
-    gpio_reset_pin(PIN_BCKL);
-    gpio_set_direction(PIN_BCKL, GPIO_MODE_OUTPUT);
-    gpio_set_level(PIN_BCKL, 1);
+    // 5) PWM backlight, full brightness to start
+    ESP_ERROR_CHECK(backlight_init());
+    display_set_brightness(100);
 
     // 6) Initialize LVGL port
     lvgl_port_cfg_t lvgl_cfg = ESP_LVGL_PORT_INIT_CONFIG();
-    lvgl_port_init(&lvgl_cfg);
+    ESP_ERROR_CHECK(lvgl_port_init(&lvgl_cfg));
 
-    // 7) Add display to LVGL
+    // 7) Add display to LVGL. hres/vres and .rotation describe the panel as initialized
+    // (portrait); the landscape rotation is applied afterwards.
     const lvgl_port_display_cfg_t disp_cfg = {
         .io_handle = io_handle,
         .panel_handle = panel_handle,
-        .buffer_size = DISP_HEIGHT * 40,
+        .buffer_size = LCD_V_RES * 40, // 40 rows of the 320 px landscape width
         .double_buffer = false,
-        .hres = DISP_WIDTH,
-        .vres = DISP_HEIGHT,
+        .hres = LCD_H_RES,
+        .vres = LCD_V_RES,
         .monochrome = false,
         .color_format = LV_COLOR_FORMAT_RGB565,
         .rotation = {
@@ -94,10 +126,19 @@ esp_err_t init_ili9341_with_lvgl(void)
         }};
 
     display_handle = lvgl_port_add_disp(&disp_cfg);
-
     if (display_handle == NULL)
     {
         return ESP_FAIL;
     }
+
+    // 8) Landscape 320x240. Hardware rotation (esp_lcd swap/mirror), no extra buffer.
+    // If the image is upside down, use LV_DISPLAY_ROTATION_270.
+    lvgl_port_lock(0);
+    lv_display_set_rotation(display_handle, LV_DISPLAY_ROTATION_90);
+    lvgl_port_unlock();
+
+    ESP_LOGI(TAG, "Display ready: %dx%d",
+             (int)lv_display_get_horizontal_resolution(display_handle),
+             (int)lv_display_get_vertical_resolution(display_handle));
     return ESP_OK;
 }

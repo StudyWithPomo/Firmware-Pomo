@@ -74,7 +74,6 @@ const char *get_signal_symbol(int rssi)
 
 void ui_root_init()
 {
-    SystemAPI system = SystemAPI::instance();
     lv_subject_init_int(&display_time_subject, 1);
 
     lv_obj_t *root = lv_scr_act();

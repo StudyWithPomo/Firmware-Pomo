@@ -19,6 +19,7 @@ idf_component_register(
     "ui/fonts/ext_symbols_28.c"
 
     "ui/screens/stubs.cpp"
+    "ui/screens/touch_test_screen.cpp"
     "ui/screens/home_screen.cpp"
     "ui/screens/lock_screen.cpp"
     "ui/screens/settings_screen.cpp"
