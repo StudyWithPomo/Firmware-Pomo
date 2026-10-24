@@ -4,8 +4,9 @@ Generated with [lv_font_conv](https://github.com/lvgl/lv_font_conv) 1.5.3, 4 bpp
 
 | Font | Source | Sizes | Glyphs |
 |---|---|---|---|
-| `font_fell_*` | IM Fell English SC (`IMFeENsc28P.ttf`) | 12, 14, 16, 25 | ASCII + `·×–’`, plus `▸` from DejaVu Sans |
-| `font_caslon_12` | Libre Caslon Text (`LibreCaslonText[wght].ttf`, default weight) | 12 | ASCII + `·×–’`, plus `▸` from DejaVu Sans |
+| `font_fell_12/14/16` | IM Fell English SC (`IMFeENsc28P.ttf`) | 12, 14, 16 | ASCII + `·×–’`, plus `▸◂−` from DejaVu Sans |
+| `font_fell_25` | IM Fell English SC | 25 | ASCII + `·×–’`, plus `▸` from DejaVu Sans |
+| `font_caslon_12` | Libre Caslon Text (`LibreCaslonText[wght].ttf`, default weight) | 12 | ASCII + `·×–’`, plus `▸◂−` from DejaVu Sans |
 | `font_plex_12` | IBM Plex Mono Regular | 12 | ASCII + `·×–’` |
 | `font_plex_22/28/50` | IBM Plex Mono Light | 22, 28, 50 | `0-9`, `:`, space |
 
@@ -17,7 +18,7 @@ Each `.c` file's header records its exact options. For example:
 
 ```bash
 npx lv_font_conv@1.5.3 --font IMFeENsc28P.ttf -r 0x20-0x7E --symbols "·×–’" \
-  --font DejaVuSans.ttf -r 0x25B8 --size 14 --bpp 4 --format lvgl --no-compress \
+  --font DejaVuSans.ttf -r 0x25B8,0x25C2,0x2212 --size 14 --bpp 4 --format lvgl --no-compress \
   --lv-include lvgl.h --lv-font-name font_fell_14 -o font_fell_14.c
 
 npx lv_font_conv@1.5.3 --font IBMPlexMono-Light.ttf --symbols "0123456789: " \

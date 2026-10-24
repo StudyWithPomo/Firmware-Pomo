@@ -1,8 +1,11 @@
 // Timer settings: default study length, break length (within the allowed range) and
-// "Always show timer". Press a length row to change it with the knob, press again to set.
-// Press "Always show" to toggle it. Hold goes back.
+// "Always show timer".
+//   Knob: press a length row to grab it, turn to change it, press again to set. Press
+//         "Always show" to toggle it. Hold goes back.
+//   Touch: − / + on the length rows, tap "Always show" to toggle it, ◂ Back.
 
 #include <ui/screens.hpp>
+#include <ui/navigator.hpp>
 #include <ui/app_state.hpp>
 #include <ui/theme.hpp>
 #include <app/session_core.hpp>
@@ -23,7 +26,7 @@ static void show_value(lv_obj_t *label, const char *text, bool editing)
 
 static bool row_is_editing(lv_obj_t *label)
 {
-    lv_obj_t *r = lv_obj_get_parent(label);
+    lv_obj_t *r = lv_obj_get_parent(lv_obj_get_parent(label));
     return lv_group_get_editing(s_group) && lv_group_get_focused(s_group) == r;
 }
 
@@ -58,6 +61,7 @@ static void on_click(lv_event_t *e)
         lv_subject_set_int(&state.always_show_timer, !lv_subject_get_int(&state.always_show_timer));
         return;
     }
+    if (!from_knob()) return; // a tap only selects the row; − / + change it
     lv_group_set_editing(s_group, !lv_group_get_editing(s_group));
     refresh(r);
 }
@@ -90,13 +94,27 @@ static void on_key(lv_event_t *e)
     }
 }
 
-static lv_obj_t *setting_row(lv_obj_t *parent, int setting, const char *name)
+// Returns the value label: "[▸] Name ...... value [− +]"
+static lv_obj_t *setting_row(lv_obj_t *parent, int setting, const char *name, bool steps)
 {
     lv_obj_t *r = list_row(parent, s_group, name, "");
     lv_obj_set_user_data(r, (void *)(intptr_t)setting);
     lv_obj_add_event_cb(r, on_click, LV_EVENT_CLICKED, nullptr);
     lv_obj_add_event_cb(r, on_key, LV_EVENT_KEY, nullptr);
-    return r;
+
+    lv_obj_t *right = row(r, LV_FLEX_ALIGN_START, 10);
+    lv_obj_t *value = lv_obj_get_child(r, 1);
+    lv_obj_set_parent(value, right);
+    if (steps) step_buttons(right, r);
+    return value;
+}
+
+static void on_group_focus(lv_group_t *group)
+{
+    // Moving on lets go of a grabbed row: redraw every value without its "< >"
+    AppState &state = AppState::instance();
+    lv_subject_notify(&state.study_min);
+    lv_subject_notify(&state.break_min);
 }
 
 void screen_timer_settings(lv_obj_t *parent, lv_group_t *group)
@@ -105,20 +123,22 @@ void screen_timer_settings(lv_obj_t *parent, lv_group_t *group)
     s_group = group;
     lv_obj_t *content = frame(parent);
 
-    label(content, "Timer Settings", &font_fell_16);
+    Header top = header(content, "Timer Settings");
 
     lv_obj_t *rows = column(content);
     lv_obj_set_width(rows, LV_PCT(100));
-    lv_obj_t *study = setting_row(rows, SET_STUDY, "Study");
-    lv_subject_add_observer_obj(&state.study_min, update_study, lv_obj_get_child(study, 1), nullptr);
-    lv_obj_t *brk = setting_row(rows, SET_BREAK, "Break");
-    lv_subject_add_observer_obj(&state.break_min, update_study, lv_obj_get_child(brk, 1), nullptr);
-    lv_obj_t *always = setting_row(rows, SET_ALWAYS_SHOW, "Always show timer");
-    lv_subject_add_observer_obj(&state.always_show_timer, update_always, lv_obj_get_child(always, 1), nullptr);
+    lv_obj_t *study = setting_row(rows, SET_STUDY, "Study", true);
+    lv_subject_add_observer_obj(&state.study_min, update_study, study, nullptr);
+    lv_obj_t *brk = setting_row(rows, SET_BREAK, "Break", true);
+    lv_subject_add_observer_obj(&state.break_min, update_study, brk, nullptr);
+    lv_obj_t *always = setting_row(rows, SET_ALWAYS_SHOW, "Always show timer", false);
+    lv_subject_add_observer_obj(&state.always_show_timer, update_always, always, nullptr);
 
-    lv_obj_t *hint = label(content, "Press to change · hold to go back", &font_fell_12, MUTED);
+    lv_obj_t *hint = label(content, "Press a row to change it", &font_fell_12, MUTED);
     lv_obj_set_width(hint, LV_PCT(100));
     lv_obj_set_style_text_align(hint, LV_TEXT_ALIGN_CENTER, 0);
 
-    lv_group_focus_obj(study);
+    lv_group_add_obj(group, top.back);
+    lv_group_set_focus_cb(group, on_group_focus);
+    lv_group_focus_obj(lv_obj_get_parent(lv_obj_get_parent(study))); // the Study row
 }

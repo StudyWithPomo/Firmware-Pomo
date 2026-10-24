@@ -179,13 +179,19 @@ int main(int argc, char **argv)
     nav_reset(ScreenID::BOOT);
     click_focused(); // Yes, wind it
     shot("02_wind", "02 Wind the timer (25 / 5)");
+    click_focused(); // grab Study
     send_key(LV_KEY_RIGHT);
-    shot("02_wind_45", "02 Wind, turned to 45 min (break range follows)");
+    shot("02_wind_45", "02 Wind, Study grabbed and turned to 45 min (break range follows)");
     send_key(LV_KEY_LEFT);
-    click_focused(); // press: on to the Break row
+    click_focused(); // let go
+    focus_next();
+    click_focused(); // grab Break
     send_key(LV_KEY_RIGHT);
-    shot("02_wind_break", "02 Wind, press moved to the Break row, turned to 6");
+    shot("02_wind_break", "02 Wind, Break grabbed and turned to 6");
     send_key(LV_KEY_LEFT);
+    click_focused();
+    focus_next();
+    shot("02_wind_start", "02 Wind, knob on Start");
 
     nav_reset(ScreenID::HOME);
     nav_go(ScreenID::MENU);
@@ -197,7 +203,12 @@ int main(int argc, char **argv)
     shot("07_workshop", "07 Workshop (copper cat with monocle)");
     click_focused(); // enter the Body row
     shot("07_workshop_edit", "07 Workshop, editing the Body row");
+    click_focused();
     state.setPet(PET_BODY_BOT, PET_FACE_PLAIN, PET_FINISH_BRASS);
+    focus_next();
+    focus_next();
+    focus_next();
+    shot("07_workshop_back", "07 Workshop, knob on Back");
 
     nav_reset(ScreenID::HOME);
     nav_go(ScreenID::CIRCLE);
@@ -206,6 +217,9 @@ int main(int argc, char **argv)
     nav_reset(ScreenID::HOME);
     nav_go(ScreenID::TIMER_SETTINGS);
     shot("09_timer_settings", "Timer settings");
+    click_focused();
+    shot("09_timer_settings_edit", "Timer settings, Study grabbed");
+    click_focused();
 
     // A real session: Begin on Home
     nav_reset(ScreenID::HOME);
@@ -213,6 +227,9 @@ int main(int argc, char **argv)
     pump(100);
     advance_seconds(8 * 60 + 42);
     shot("03_focus", "03 Focus, timer hidden");
+    focus_next();
+    shot("03_focus_end", "03 Focus, knob on End session");
+    focus_next();
 
     state.peek();
     shot("03b_peek", "03b Peek (lit for 5 s)");

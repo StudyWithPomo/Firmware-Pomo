@@ -1,7 +1,7 @@
 /*******************************************************************************
  * Size: 12 px
  * Bpp: 4
- * Opts: --font fontsrc/LibreCaslonText.ttf -r 0x20-0x7E --symbols ·×–’ --font lvgl/scripts/built_in_font/DejaVuSans.ttf -r 0x25B8 --size 12 --bpp 4 --format lvgl --no-compress --lv-include lvgl.h --lv-font-name font_caslon_12 -o font_caslon_12.c
+ * Opts: --font fontsrc/LibreCaslonText.ttf -r 0x20-0x7E --symbols ·×–’ --font lvgl/scripts/built_in_font/DejaVuSans.ttf -r 0x25B8,0x25C2,0x2212 --size 12 --bpp 4 --format lvgl --no-compress --lv-include lvgl.h --lv-font-name font_caslon_12 -o font_caslon_12.c
  ******************************************************************************/
 
 #ifdef LV_LVGL_H_INCLUDE_SIMPLE
@@ -649,10 +649,18 @@ static LV_ATTRIBUTE_LARGE_CONST const uint8_t glyph_bitmap[] = {
     /* U+2019 "’" */
     0x3e, 0x21, 0xd4, 0x8, 0x10, 0x40,
 
+    /* U+2212 "−" */
+    0x0, 0x0, 0x0, 0x0, 0x9f, 0xff, 0xff, 0xfe,
+
     /* U+25B8 "▸" */
     0x0, 0x0, 0x0, 0xd5, 0x0, 0x0, 0xff, 0xd5,
     0x0, 0xff, 0xff, 0xd5, 0xff, 0xff, 0xa2, 0xff,
-    0xa2, 0x0, 0x92, 0x0, 0x0
+    0xa2, 0x0, 0x92, 0x0, 0x0,
+
+    /* U+25C2 "◂" */
+    0x0, 0x0, 0x0, 0x0, 0x0, 0x5d, 0x0, 0x5d,
+    0xff, 0x5d, 0xff, 0xff, 0x29, 0xff, 0xff, 0x0,
+    0x2a, 0xff, 0x0, 0x0, 0x29
 };
 
 
@@ -761,7 +769,9 @@ static const lv_font_fmt_txt_glyph_dsc_t glyph_dsc[] = {
     {.bitmap_index = 3017, .adv_w = 93, .box_w = 6, .box_h = 5, .ofs_x = 0, .ofs_y = 2},
     {.bitmap_index = 3032, .adv_w = 143, .box_w = 9, .box_h = 1, .ofs_x = 0, .ofs_y = 3},
     {.bitmap_index = 3037, .adv_w = 46, .box_w = 3, .box_h = 4, .ofs_x = 0, .ofs_y = 7},
-    {.bitmap_index = 3043, .adv_w = 96, .box_w = 6, .box_h = 7, .ofs_x = 0, .ofs_y = 0}
+    {.bitmap_index = 3043, .adv_w = 161, .box_w = 8, .box_h = 2, .ofs_x = 1, .ofs_y = 3},
+    {.bitmap_index = 3051, .adv_w = 96, .box_w = 6, .box_h = 7, .ofs_x = 0, .ofs_y = 0},
+    {.bitmap_index = 3072, .adv_w = 96, .box_w = 6, .box_h = 7, .ofs_x = 0, .ofs_y = 0}
 };
 
 /*---------------------
@@ -769,7 +779,7 @@ static const lv_font_fmt_txt_glyph_dsc_t glyph_dsc[] = {
  *--------------------*/
 
 static const uint16_t unicode_list_1[] = {
-    0x0, 0x20, 0x1f5c, 0x1f62, 0x2501
+    0x0, 0x20, 0x1f5c, 0x1f62, 0x215b, 0x2501, 0x250b
 };
 
 /*Collect the unicode lists and glyph_id offsets*/
@@ -780,8 +790,8 @@ static const lv_font_fmt_txt_cmap_t cmaps[] =
         .unicode_list = NULL, .glyph_id_ofs_list = NULL, .list_length = 0, .type = LV_FONT_FMT_TXT_CMAP_FORMAT0_TINY
     },
     {
-        .range_start = 183, .range_length = 9474, .glyph_id_start = 96,
-        .unicode_list = unicode_list_1, .glyph_id_ofs_list = NULL, .list_length = 5, .type = LV_FONT_FMT_TXT_CMAP_SPARSE_TINY
+        .range_start = 183, .range_length = 9484, .glyph_id_start = 96,
+        .unicode_list = unicode_list_1, .glyph_id_ofs_list = NULL, .list_length = 7, .type = LV_FONT_FMT_TXT_CMAP_SPARSE_TINY
     }
 };
 
@@ -805,7 +815,7 @@ static const uint8_t kern_left_class_mapping[] =
     56, 57, 58, 59, 60, 61, 62, 57,
     63, 51, 64, 65, 66, 67, 68, 69,
     70, 71, 72, 73, 74, 75, 0, 0,
-    76, 0, 9, 77, 0
+    76, 0, 9, 77, 0, 0, 0
 };
 
 /*Map glyph_ids to kern right classes*/
@@ -823,7 +833,7 @@ static const uint8_t kern_right_class_mapping[] =
     51, 52, 53, 54, 52, 55, 56, 56,
     57, 58, 49, 56, 59, 60, 61, 62,
     63, 64, 65, 66, 0, 67, 68, 0,
-    69, 70, 11, 71, 0
+    69, 70, 11, 71, 0, 0, 0
 };
 
 /*Kern values between classes*/

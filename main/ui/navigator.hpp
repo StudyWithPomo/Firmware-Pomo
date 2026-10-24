@@ -20,7 +20,7 @@ public:
     void navigate(ScreenID id);
     // Go to a screen and forget the history (e.g. entering a session)
     void reset(ScreenID id);
-    // Return to the previous screen, if there is one
+    // Return to the previous screen, or Home if there is none
     void back();
 
     // Override what a 2 s hold does on the current screen. Call from a screen builder;

@@ -4,6 +4,7 @@
 #include <string.h>
 
 #include <ui/app_state.hpp>
+#include <ui/navigator.hpp>
 
 namespace theme {
 
@@ -11,6 +12,8 @@ namespace theme {
 static lv_style_t s_focused;
 // Outline-only knob stop (Workshop rows)
 static lv_style_t s_focused_outline;
+// Either kind while grabbed (the group is editing)
+static lv_style_t s_grabbed;
 static lv_style_t s_tube;
 static bool s_ready = false;
 
@@ -30,6 +33,9 @@ void init()
     lv_style_set_outline_width(&s_focused_outline, 2);
     lv_style_set_outline_color(&s_focused_outline, c(BRASS_HI));
     lv_style_set_outline_pad(&s_focused_outline, 3);
+
+    lv_style_init(&s_grabbed);
+    lv_style_set_outline_color(&s_grabbed, c(VERDIGRIS_HI));
 
     // Unlit nixie glass: dark gradient, brass-brown rim
     lv_style_init(&s_tube);
@@ -191,7 +197,9 @@ static void on_outline_focus_change(lv_event_t *e) { apply_focus(e, LV_STATE_USE
 void focusable(lv_obj_t *obj, lv_group_t *group, lv_obj_t *ptr)
 {
     lv_obj_add_flag(obj, LV_OBJ_FLAG_CLICKABLE);
+    lv_obj_set_ext_click_area(obj, TAP_MARGIN);
     lv_obj_add_style(obj, &s_focused, LV_STATE_FOCUSED);
+    lv_obj_add_style(obj, &s_grabbed, LV_STATE_FOCUSED | LV_STATE_EDITED);
     lv_obj_add_event_cb(obj, on_focus_change, LV_EVENT_FOCUSED, ptr);
     lv_obj_add_event_cb(obj, on_focus_change, LV_EVENT_DEFOCUSED, ptr);
     if (group) lv_group_add_obj(group, obj);
@@ -201,9 +209,16 @@ void focusable_outline(lv_obj_t *obj, lv_group_t *group, lv_obj_t *ptr)
 {
     lv_obj_add_flag(obj, LV_OBJ_FLAG_CLICKABLE);
     lv_obj_add_style(obj, &s_focused_outline, LV_STATE_FOCUSED);
+    lv_obj_add_style(obj, &s_grabbed, LV_STATE_FOCUSED | LV_STATE_EDITED);
     lv_obj_add_event_cb(obj, on_outline_focus_change, LV_EVENT_FOCUSED, ptr);
     lv_obj_add_event_cb(obj, on_outline_focus_change, LV_EVENT_DEFOCUSED, ptr);
     if (group) lv_group_add_obj(group, obj);
+}
+
+bool from_knob()
+{
+    lv_indev_t *indev = lv_indev_active();
+    return !indev || lv_indev_get_type(indev) == LV_INDEV_TYPE_ENCODER;
 }
 
 void always_editing(lv_group_t *group)
@@ -258,6 +273,63 @@ lv_obj_t *list_row(lv_obj_t *parent, lv_group_t *group, const char *text,
     if (detail) label(r, detail, detail_font ? detail_font : &font_plex_12, detail_color);
 
     focusable(r, group, ptr);
+    lv_obj_set_ext_click_area(r, 0); // rows are tall enough, and stacked edge to edge
+    return r;
+}
+
+static void on_back(lv_event_t *e) { Navigator::instance().back(); }
+
+Header header(lv_obj_t *content, const char *title, const lv_font_t *font)
+{
+    Header h;
+    h.row = row(content);
+    lv_obj_set_width(h.row, LV_PCT(100));
+    lv_obj_t *left = row(h.row, LV_FLEX_ALIGN_START, 10);
+    h.back = chip(left, UI_BACK " Back", &font_fell_12);
+    lv_obj_set_style_pad_ver(h.back, 2, 0);
+    focusable(h.back, nullptr);
+    lv_obj_add_event_cb(h.back, on_back, LV_EVENT_CLICKED, nullptr);
+    h.title = label(left, title, font);
+    return h;
+}
+
+static void on_step(lv_event_t *e)
+{
+    lv_obj_t *target = (lv_obj_t *)lv_event_get_user_data(e);
+    uint32_t key = (uint32_t)(uintptr_t)lv_obj_get_user_data(lv_event_get_current_target_obj(e));
+    lv_group_t *group = lv_obj_get_group(target);
+    if (lv_event_get_code(e) == LV_EVENT_PRESSED && group && lv_group_get_focused(group) != target)
+        lv_group_focus_obj(target);
+    lv_obj_send_event(target, LV_EVENT_KEY, &key);
+}
+
+static lv_obj_t *step_button(lv_obj_t *parent, lv_obj_t *target, const char *text, uint32_t key)
+{
+    lv_obj_t *btn = box(parent);
+    lv_obj_set_size(btn, 26, 22);
+    lv_obj_set_style_border_width(btn, 1, 0);
+    lv_obj_set_style_border_color(btn, c(BRASS), 0);
+    lv_obj_set_style_border_color(btn, c(PANEL), LV_STATE_USER_1); // inside a focused row
+    lv_obj_set_style_bg_color(btn, c(TUBE_RIM), LV_STATE_PRESSED);
+    lv_obj_set_style_bg_opa(btn, LV_OPA_COVER, LV_STATE_PRESSED);
+    lv_obj_set_flex_flow(btn, LV_FLEX_FLOW_ROW);
+    lv_obj_set_flex_align(btn, LV_FLEX_ALIGN_CENTER, LV_FLEX_ALIGN_CENTER, LV_FLEX_ALIGN_CENTER);
+    label(btn, text, &font_fell_16);
+
+    lv_obj_add_flag(btn, LV_OBJ_FLAG_CLICKABLE);
+    lv_obj_remove_flag(btn, LV_OBJ_FLAG_CLICK_FOCUSABLE);
+    lv_obj_set_ext_click_area(btn, 3); // half the gap between the two
+    lv_obj_set_user_data(btn, (void *)(uintptr_t)key);
+    lv_obj_add_event_cb(btn, on_step, LV_EVENT_PRESSED, target);
+    lv_obj_add_event_cb(btn, on_step, LV_EVENT_LONG_PRESSED_REPEAT, target);
+    return btn;
+}
+
+lv_obj_t *step_buttons(lv_obj_t *parent, lv_obj_t *target)
+{
+    lv_obj_t *r = row(parent, LV_FLEX_ALIGN_START, 6);
+    step_button(r, target, UI_MINUS, LV_KEY_LEFT);
+    step_button(r, target, "+", LV_KEY_RIGHT);
     return r;
 }
 

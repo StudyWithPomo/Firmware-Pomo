@@ -23,8 +23,10 @@ extern const lv_font_t font_plex_22;
 extern const lv_font_t font_plex_28;
 extern const lv_font_t font_plex_50;
 
-// The focus pointer (U+25B8, merged into the Fell and Caslon fonts from DejaVu Sans)
-#define UI_POINTER "\xE2\x96\xB8"
+// Symbols merged into the Fell 12/14/16 and Caslon fonts from DejaVu Sans
+#define UI_POINTER "\xE2\x96\xB8" // ▸ U+25B8, the focus pointer (also in Fell 25)
+#define UI_BACK    "\xE2\x97\x82" // ◂ U+25C2
+#define UI_MINUS   "\xE2\x88\x92" // − U+2212
 
 #ifdef __cplusplus
 }

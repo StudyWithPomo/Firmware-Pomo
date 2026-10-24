@@ -1,7 +1,9 @@
 // 07 Workshop: live preview in the porthole and rows for Body (Bot / Cat / Dog),
 // Face (Plain / Monocle) and Finish (4 swatches). The outlined row is where the knob is;
-// the filled chip is the current choice. Turn moves between rows; press enters a row, where
-// turning changes the choice (live) and pressing again sets it. Hold goes back.
+// the filled chip is the current choice.
+//   Knob: turn moves between rows (and ◂ Back); press grabs a row, where turning changes the
+//         choice (live) and pressing again lets go. Hold goes back.
+//   Touch: tap a chip or swatch to choose it.
 
 #include <ui/screens.hpp>
 #include <ui/navigator.hpp>
@@ -64,25 +66,20 @@ static void update_title(lv_observer_t *observer, lv_subject_t *subject)
 
 static void set_hint(bool editing)
 {
-    lv_label_set_text(ui.hint, editing ? "Turn to change · press to set" : "Turn to browse · press to pick · hold to leave");
+    if (!ui.hint) return;
+    lv_label_set_text(ui.hint, editing ? "Turn to change · press to set" : "Tap a choice, or press a row to change it");
 }
 
 static void on_row_click(lv_event_t *e)
 {
+    if (!from_knob()) return; // a tap on the row selects it; taps on the chips choose
     const bool editing = !lv_group_get_editing(ui.group);
     lv_group_set_editing(ui.group, editing);
     set_hint(editing);
 }
 
-static void on_row_key(lv_event_t *e)
+static void choose(int opt, int next)
 {
-    const uint32_t key = lv_event_get_key(e);
-    if (key != LV_KEY_RIGHT && key != LV_KEY_LEFT) return;
-    const int opt = (int)(intptr_t)lv_event_get_user_data(e);
-    lv_subject_t *subject = subject_for(opt);
-    const int n = OPTION_COUNTS[opt];
-    const int next = (lv_subject_get_int(subject) + (key == LV_KEY_RIGHT ? 1 : n - 1)) % n;
-
     AppState &state = AppState::instance();
     int body = lv_subject_get_int(&state.pet_body);
     int face = lv_subject_get_int(&state.pet_face);
@@ -92,6 +89,43 @@ static void on_row_key(lv_event_t *e)
     else finish = next;
     state.setPet(body, face, finish);
 }
+
+static void on_row_key(lv_event_t *e)
+{
+    const uint32_t key = lv_event_get_key(e);
+    if (key != LV_KEY_RIGHT && key != LV_KEY_LEFT) return;
+    const int opt = (int)(intptr_t)lv_event_get_user_data(e);
+    const int n = OPTION_COUNTS[opt];
+    choose(opt, (lv_subject_get_int(subject_for(opt)) + (key == LV_KEY_RIGHT ? 1 : n - 1)) % n);
+}
+
+static void on_choice_tap(lv_event_t *e)
+{
+    lv_obj_t *item = lv_event_get_current_target_obj(e);
+    lv_obj_t *r = lv_obj_get_parent(lv_obj_get_parent(item));
+    if (lv_group_get_focused(ui.group) != r) lv_group_focus_obj(r);
+    choose((int)(intptr_t)lv_event_get_user_data(e), (int)lv_obj_get_index(item));
+}
+
+// Chips and swatches choose on a tap; they aren't knob stops
+static lv_obj_t *tappable(lv_obj_t *item, int opt)
+{
+    lv_obj_add_flag(item, LV_OBJ_FLAG_CLICKABLE);
+    lv_obj_remove_flag(item, LV_OBJ_FLAG_CLICK_FOCUSABLE);
+    lv_obj_set_ext_click_area(item, 3);
+    lv_obj_add_event_cb(item, on_choice_tap, LV_EVENT_CLICKED, (void *)(intptr_t)opt);
+    return item;
+}
+
+static lv_obj_t *choice_chip(lv_obj_t *parent, int opt, const char *name)
+{
+    lv_obj_t *item = tappable(chip(parent, name, &font_caslon_12), opt);
+    lv_obj_set_style_pad_hor(item, 5, 0);
+    lv_obj_set_style_pad_ver(item, 3, 0);
+    return item;
+}
+
+static void on_delete(lv_event_t *e) { ui = {}; }
 
 static lv_obj_t *option_row(lv_obj_t *parent, int opt, const char *name)
 {
@@ -116,11 +150,10 @@ void screen_workshop(lv_obj_t *parent, lv_group_t *group)
     ui.group = group;
     lv_obj_t *content = frame(parent);
 
-    lv_obj_t *top = row(content);
-    lv_obj_set_width(top, LV_PCT(100));
-    lv_obj_t *title = label(top, "", &font_fell_16);
-    lv_subject_add_observer_obj(&state.pet_name, update_title, title, nullptr);
-    label(top, "press to save", &font_fell_12, MUTED);
+    lv_obj_add_event_cb(content, on_delete, LV_EVENT_DELETE, nullptr);
+
+    Header top = header(content, "");
+    lv_subject_add_observer_obj(&state.pet_name, update_title, top.title, nullptr);
 
     lv_obj_t *middle = row(content, LV_FLEX_ALIGN_START, 6);
     lv_obj_set_width(middle, LV_PCT(100));
@@ -130,13 +163,13 @@ void screen_workshop(lv_obj_t *parent, lv_group_t *group)
     lv_obj_t *rows = column(middle, 8);
     lv_obj_set_style_pad_all(rows, 5, 0); // room for the knob outline
     lv_obj_t *first = option_row(rows, OPT_BODY, "Body");
-    for (const char *name : BODY_NAMES) lv_obj_set_style_pad_hor(chip(ui.choices[OPT_BODY], name, &font_caslon_12), 5, 0);
+    for (const char *name : BODY_NAMES) choice_chip(ui.choices[OPT_BODY], OPT_BODY, name);
     option_row(rows, OPT_FACE, "Face");
-    for (const char *name : FACE_NAMES) lv_obj_set_style_pad_hor(chip(ui.choices[OPT_FACE], name, &font_caslon_12), 5, 0);
+    for (const char *name : FACE_NAMES) choice_chip(ui.choices[OPT_FACE], OPT_FACE, name);
     option_row(rows, OPT_FINISH, "Finish");
     for (int i = 0; i < PET_FINISH_COUNT; i++) {
-        lv_obj_t *swatch = box(ui.choices[OPT_FINISH]);
-        lv_obj_set_size(swatch, 17, 17);
+        lv_obj_t *swatch = tappable(box(ui.choices[OPT_FINISH]), OPT_FINISH);
+        lv_obj_set_size(swatch, 20, 20);
         lv_obj_set_style_bg_opa(swatch, LV_OPA_COVER, 0);
         lv_obj_set_style_bg_color(swatch, c(pet_palettes[i][PET_SLOT_BODY]), 0);
         lv_obj_set_style_border_width(swatch, 1, 0);
@@ -152,5 +185,7 @@ void screen_workshop(lv_obj_t *parent, lv_group_t *group)
     lv_obj_set_style_text_align(ui.hint, LV_TEXT_ALIGN_CENTER, 0);
     set_hint(false);
 
+    lv_group_add_obj(group, top.back);
+    lv_group_set_focus_cb(group, [](lv_group_t *) { set_hint(false); }); // moving on lets go
     lv_group_focus_obj(first);
 }

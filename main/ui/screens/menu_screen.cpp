@@ -1,5 +1,5 @@
 // 06 Menu: Begin session, Study circle (N near), {pet}'s workshop, Timer settings.
-// Turn to choose, press to open, hold to go back.
+// Turn to choose, press to open; ◂ Back or hold to go back. Every row also opens on a tap.
 
 #include <ui/screens.hpp>
 #include <ui/navigator.hpp>
@@ -48,10 +48,8 @@ void screen_menu(lv_obj_t *parent, lv_group_t *group)
     AppState &state = AppState::instance();
     lv_obj_t *content = frame(parent);
 
-    lv_obj_t *top = row(content);
-    lv_obj_set_width(top, LV_PCT(100));
-    label(top, "Menu", &font_fell_16);
-    lv_obj_t *progress = label(top, "", &font_plex_12);
+    Header top = header(content, "Menu");
+    lv_obj_t *progress = label(top.row, "", &font_plex_12);
     lv_subject_add_observer_obj(&state.level, update_progress, progress, nullptr);
     lv_subject_add_observer_obj(&state.xp, update_progress, progress, nullptr);
 
@@ -80,5 +78,6 @@ void screen_menu(lv_obj_t *parent, lv_group_t *group)
     lv_obj_set_width(hint, LV_PCT(100));
     lv_obj_set_style_text_align(hint, LV_TEXT_ALIGN_CENTER, 0);
 
+    lv_group_add_obj(group, top.back);
     lv_group_focus_obj(begin);
 }

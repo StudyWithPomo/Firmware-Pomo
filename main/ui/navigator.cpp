@@ -45,7 +45,8 @@ void Navigator::init(lv_indev_t *encoder_indev) {
 }
 
 void Navigator::navigate(ScreenID id) {
-    if (has_current) {
+    // Boot is a one-off greeting: Back from where it leads goes Home instead
+    if (has_current && current != ScreenID::BOOT) {
         history.push_back(current);
         if (history.size() > MAX_HISTORY) history.erase(history.begin());
     }
@@ -58,7 +59,10 @@ void Navigator::reset(ScreenID id) {
 }
 
 void Navigator::back() {
-    if (history.empty()) return;
+    if (history.empty()) {
+        if (current != ScreenID::HOME) request(ScreenID::HOME);
+        return;
+    }
     ScreenID prev = history.back();
     history.pop_back();
     request(prev);

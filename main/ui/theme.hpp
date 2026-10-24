@@ -79,6 +79,32 @@ lv_obj_t *button(lv_obj_t *parent, lv_group_t *group, const char *text, const lv
 // Outline-only focus (the Workshop's rows): highlight outline, labels turn BRASS_HI
 void focusable_outline(lv_obj_t *obj, lv_group_t *group, lv_obj_t *pointer = nullptr);
 
+// Both kinds of knob stop show a verdigris outline while grabbed (the group is editing).
+
+// Did the input being handled come from the knob? False for touch. Events sent with no input
+// device (the PC preview) count as the knob.
+bool from_knob();
+
+// ---- Touch ----
+
+// Extra hit area around small touch targets, beyond what's drawn
+constexpr int TAP_MARGIN = 6;
+
+// Title row: "◂ Back  Title ........" (space-between, full width). Add right-hand items to
+// `row`. Back is not in the group yet: add it last with lv_group_add_obj, so it's the knob's
+// last stop. Hold still goes back too.
+struct Header {
+    lv_obj_t *row;
+    lv_obj_t *back;
+    lv_obj_t *title;
+};
+Header header(lv_obj_t *content, const char *title, const lv_font_t *font = &font_fell_16);
+
+// "− +" buttons for touch, in a row added to `parent`. A press (and holding) sends
+// LV_KEY_LEFT / LV_KEY_RIGHT to `target`, just like turning the knob while it's grabbed,
+// and moves the knob to `target`. Not knob stops.
+lv_obj_t *step_buttons(lv_obj_t *parent, lv_obj_t *target);
+
 // Menu row: 32 px tall with a divider under it, "[▸] text ..... detail". Focusable.
 // Returns the row; the detail label (if any) is child 1.
 lv_obj_t *list_row(lv_obj_t *parent, lv_group_t *group, const char *text,

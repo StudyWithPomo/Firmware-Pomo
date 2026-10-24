@@ -1,11 +1,12 @@
 // 03 Focus, with 03b Peek and 04 Drift as states of the same screen. All three views are
 // built once; observers switch between them and update the timer, so nothing is rebuilt
 // every second.
-//   Dark (default): pet centre stage, unlit tubes, "Press to peek"
+//   Dark (default): pet centre stage, unlit tubes
 //   Peek:           tubes lit for 5 s (or always, with "Always show timer"), progress rail
 //   Drift:          copper band naming the drift, annoyed pet, "2x paused"
-// Press = peek. Hold = end the session early, after a confirm. Touch is locked, except that
-// tapping the pet hushes it.
+// Under the views, Peek and End session buttons for the knob and touch alike. Peek is hidden
+// while drifting or always showing the timer. End session (or a 2 s hold) asks first.
+// Tapping the pet hushes it.
 
 #include <stdio.h>
 
@@ -21,7 +22,8 @@ using namespace theme;
 
 static struct {
     lv_group_t *group;
-    lv_obj_t *target;   // the knob's only stop: receives press-to-peek
+    lv_obj_t *peek_btn;
+    lv_obj_t *end_btn;
     lv_obj_t *dark;
     lv_obj_t *peek;
     lv_obj_t *drift;
@@ -40,9 +42,19 @@ static void show_only(lv_obj_t *view)
 static void update_view(lv_observer_t *observer, lv_subject_t *subject)
 {
     AppState &state = AppState::instance();
-    if (lv_subject_get_int(&state.focus_state)) show_only(ui.drift);
-    else if (lv_subject_get_int(&state.peek_active) || lv_subject_get_int(&state.always_show_timer)) show_only(ui.peek);
+    const bool drifting = lv_subject_get_int(&state.focus_state);
+    const bool always = lv_subject_get_int(&state.always_show_timer);
+    if (drifting) show_only(ui.drift);
+    else if (lv_subject_get_int(&state.peek_active) || always) show_only(ui.peek);
     else show_only(ui.dark);
+
+    // Nothing to peek at: the knob skips the hidden button
+    if (drifting || always) {
+        lv_obj_add_flag(ui.peek_btn, LV_OBJ_FLAG_HIDDEN);
+        if (lv_group_get_focused(ui.group) == ui.peek_btn) lv_group_focus_obj(ui.end_btn);
+    } else {
+        lv_obj_remove_flag(ui.peek_btn, LV_OBJ_FLAG_HIDDEN);
+    }
 }
 
 // ---- Observers ----
@@ -108,7 +120,7 @@ static void update_lamps(lv_observer_t *observer, lv_subject_t *subject)
 
 // ---- Input ----
 
-static void on_press(lv_event_t *e)
+static void on_peek(lv_event_t *e)
 {
     if (ui.modal) return;
     AppState::instance().peek();
@@ -124,8 +136,9 @@ static void close_modal()
     if (!ui.modal) return;
     lv_obj_delete_async(ui.modal); // its buttons leave the group as they're deleted
     ui.modal = nullptr;
-    lv_group_add_obj(ui.group, ui.target);
-    lv_group_focus_obj(ui.target);
+    lv_group_add_obj(ui.group, ui.peek_btn);
+    lv_group_add_obj(ui.group, ui.end_btn);
+    lv_group_focus_obj(lv_obj_has_flag(ui.peek_btn, LV_OBJ_FLAG_HIDDEN) ? ui.end_btn : ui.peek_btn);
 }
 
 static void on_keep_going(lv_event_t *e) { close_modal(); }
@@ -139,6 +152,7 @@ static void confirm_end()
     lv_obj_add_flag(ui.modal, LV_OBJ_FLAG_IGNORE_LAYOUT);
     lv_obj_add_flag(ui.modal, LV_OBJ_FLAG_FLOATING);
     lv_obj_set_size(ui.modal, LV_PCT(100), LV_PCT(100));
+    lv_obj_add_flag(ui.modal, LV_OBJ_FLAG_CLICKABLE); // catches taps meant for what's under it
     lv_obj_set_style_bg_opa(ui.modal, LV_OPA_90, 0);
     lv_obj_set_style_bg_color(ui.modal, c(PANEL), 0);
     lv_obj_set_flex_flow(ui.modal, LV_FLEX_FLOW_COLUMN);
@@ -148,7 +162,8 @@ static void confirm_end()
     label(ui.modal, "End session early?", &font_fell_16, BRASS_HI);
     lv_obj_t *buttons = row(ui.modal, LV_FLEX_ALIGN_CENTER, 10);
 
-    lv_group_remove_obj(ui.target);
+    lv_group_remove_obj(ui.peek_btn);
+    lv_group_remove_obj(ui.end_btn);
     lv_obj_t *keep = button(buttons, ui.group, "Keep going", &font_fell_14);
     lv_obj_set_size(keep, 120, 32);
     lv_obj_add_event_cb(keep, on_keep_going, LV_EVENT_CLICKED, nullptr);
@@ -158,14 +173,18 @@ static void confirm_end()
     lv_group_focus_obj(keep);
 }
 
+static void on_end(lv_event_t *e) { confirm_end(); }
+
 // ---- Layout ----
 
+// A view fills the space above the button bar
 static lv_obj_t *view(lv_obj_t *content)
 {
     lv_obj_t *v = box(content);
-    lv_obj_set_size(v, LV_PCT(100), LV_PCT(100));
+    lv_obj_set_width(v, LV_PCT(100));
+    lv_obj_set_flex_grow(v, 1);
     lv_obj_set_style_pad_top(v, 7, 0);
-    lv_obj_set_style_pad_bottom(v, 9, 0);
+    lv_obj_set_style_pad_bottom(v, 2, 0);
     lv_obj_set_style_pad_hor(v, 9, 0);
     lv_obj_set_flex_flow(v, LV_FLEX_FLOW_COLUMN);
     lv_obj_set_flex_align(v, LV_FLEX_ALIGN_SPACE_BETWEEN, LV_FLEX_ALIGN_START, LV_FLEX_ALIGN_START);
@@ -211,7 +230,6 @@ static void build_dark(lv_obj_t *v)
     lv_obj_set_flex_align(side, LV_FLEX_ALIGN_START, LV_FLEX_ALIGN_CENTER, LV_FLEX_ALIGN_CENTER);
     const NixieSpec dark = { 26, 42, 7, 9, 3, &font_plex_22 };
     nixie_row(side, dark, false);
-    label(side, "Press to peek", &font_fell_14, BRASS_HI);
 
     lamp_list(v, false);
 }
@@ -250,7 +268,6 @@ static void build_drift(lv_obj_t *v)
 {
     AppState &state = AppState::instance();
     lv_obj_set_style_pad_all(v, 0, 0);
-    lv_obj_set_style_pad_bottom(v, 7, 0);
 
     lv_obj_t *band = row(v);
     lv_obj_set_size(band, LV_PCT(100), 32);
@@ -299,11 +316,18 @@ void screen_focus(lv_obj_t *parent, lv_group_t *group)
     ui.drift = view(content);
     build_drift(ui.drift);
 
-    // The knob's single stop. Not clickable, so touch can't peek or end the session.
-    ui.target = content;
-    lv_group_add_obj(group, content);
-    lv_obj_add_event_cb(content, on_press, LV_EVENT_CLICKED, nullptr);
+    lv_obj_t *bar = row(content, LV_FLEX_ALIGN_CENTER, 12);
+    lv_obj_set_width(bar, LV_PCT(100));
+    lv_obj_set_style_pad_top(bar, 2, 0);
+    lv_obj_set_style_pad_bottom(bar, 8, 0);
+    ui.peek_btn = button(bar, group, "Peek", &font_fell_14);
+    lv_obj_set_size(ui.peek_btn, 110, 26);
+    lv_obj_add_event_cb(ui.peek_btn, on_peek, LV_EVENT_CLICKED, nullptr);
+    ui.end_btn = button(bar, group, "End session", &font_fell_14);
+    lv_obj_set_size(ui.end_btn, 130, 26);
+    lv_obj_add_event_cb(ui.end_btn, on_end, LV_EVENT_CLICKED, nullptr);
     Navigator::instance().setHoldHandler(confirm_end);
+    lv_group_focus_obj(ui.peek_btn);
 
     lv_subject_add_observer_obj(&state.focus_state, update_view, content, nullptr);
     lv_subject_add_observer_obj(&state.peek_active, update_view, content, nullptr);
