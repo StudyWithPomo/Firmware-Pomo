@@ -103,6 +103,9 @@ esp_err_t init_ili9341_with_lvgl(void)
 
     // 6) Initialize LVGL port
     lvgl_port_cfg_t lvgl_cfg = ESP_LVGL_PORT_INIT_CONFIG();
+    // LVGL draws by recursing through the object tree, about 0.5 KB of stack per level of
+    // nesting. The default 7 KB overflowed on deeply nested screens (the Workshop).
+    lvgl_cfg.task_stack = 16 * 1024;
     ESP_ERROR_CHECK(lvgl_port_init(&lvgl_cfg));
 
     // 7) Add display to LVGL. hres/vres and .rotation describe the panel as initialized

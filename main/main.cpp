@@ -92,7 +92,16 @@ extern "C" void app_main(void)
     AppState::instance().loadSaved();
     Navigator::instance().reset(ScreenID::BOOT);
 #endif
-    lv_timer_create([](lv_timer_t* t){ AppState::instance().update(); }, 1000, nullptr);
+    lv_timer_create([](lv_timer_t* t){
+        AppState::instance().update();
+        // Log each new low in the LVGL task's free stack, to see how close screens get
+        static UBaseType_t lowest = UINT32_MAX;
+        const UBaseType_t free_words = uxTaskGetStackHighWaterMark(nullptr);
+        if (free_words < lowest) {
+            lowest = free_words;
+            ESP_LOGI(TAG, "[stack] LVGL task: %u bytes never used", (unsigned)(free_words * sizeof(StackType_t)));
+        }
+    }, 1000, nullptr);
     lvgl_port_unlock();
 
     log_heap("display + touch + LVGL");
