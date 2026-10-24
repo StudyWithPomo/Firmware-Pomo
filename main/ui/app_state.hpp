@@ -3,6 +3,7 @@
 #include "freertos/FreeRTOS.h"
 #include "freertos/queue.h"
 #include <app/session_core.hpp>
+#include <app/storage.hpp>
 
 // Reactive app state. Screens observe these subjects and never read globals directly.
 // Subjects are only touched from the LVGL task: background work (the session timer, the
@@ -70,6 +71,9 @@ public:
 
     // Start draining the session queues (call once, LVGL lock held, after Session::init)
     void attach();
+    // Restore saved progress and settings, then save changes from now on (after attach;
+    // NVS must be initialized)
+    void loadSaved();
     // Call from the LVGL task once a second
     void update();
 
@@ -97,6 +101,9 @@ private:
     void handleEvent(const SessionEvent &event);
     void applyCommand(const UiCommand &cmd);
     void refreshMood();
+    SavedState currentState();
+    void scheduleSave();
+    void saveNow();
 
     Friend friend_list[MAX_FRIENDS] = {};
     int friend_count = 0;
@@ -104,5 +111,7 @@ private:
     QueueHandle_t commands = nullptr;
     lv_timer_t *peek_timer = nullptr;
     lv_timer_t *shh_timer = nullptr;
+    lv_timer_t *save_timer = nullptr;
+    bool persisting = false;
     bool shh_active = false;
 };

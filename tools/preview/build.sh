@@ -57,7 +57,8 @@ APP_CPP=(
     "$ROOT"/main/ui/*.cpp
     "$ROOT"/main/ui/pet/*.cpp
     "$ROOT"/main/ui/screens/*.cpp
-    "$ROOT"/main/app/*.cpp
+    "$ROOT"/main/app/session_core.cpp
+    "$ROOT"/main/app/session.cpp
     "$ROOT"/main/utilities.cpp
     "$HERE"/sim_stubs.cpp
     "$HERE"/preview.cpp

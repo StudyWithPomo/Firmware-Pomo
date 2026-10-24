@@ -18,6 +18,16 @@ static inline size_t strlcat(char *dst, const char *src, size_t size)
     }
     return d + s;
 }
+static inline size_t strlcpy(char *dst, const char *src, size_t size)
+{
+    size_t s = strlen(src);
+    if (size) {
+        size_t n = s < size - 1 ? s : size - 1;
+        memcpy(dst, src, n);
+        dst[n] = '\0';
+    }
+    return s;
+}
 static inline int setenv(const char *name, const char *value, int) { return _putenv_s(name, value); }
 // The preview's clock is UTC so screenshots don't depend on this PC's time zone
 static inline struct tm *localtime_r(const time_t *t, struct tm *out) { return gmtime_s(out, t) == 0 ? out : NULL; }

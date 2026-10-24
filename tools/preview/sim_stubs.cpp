@@ -122,3 +122,18 @@ int SystemAPI::setCurrentTime(long epochSeconds) const
 // ---- Laptop link (not simulated) ----
 
 void link_send_circle() {}
+
+// ---- Saved progress (nothing is persisted in the preview) ----
+
+#include "app/storage.hpp"
+
+void storage_defaults(SavedState *out)
+{
+    memset(out, 0, sizeof(*out));
+    strcpy(out->pet_name, "Mochi");
+    out->study_min = 25;
+    out->break_min = 5;
+}
+
+void storage_load(SavedState *out) { storage_defaults(out); }
+bool storage_save(const SavedState &) { return true; }

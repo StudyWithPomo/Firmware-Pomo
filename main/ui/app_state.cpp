@@ -18,6 +18,8 @@ static const char *TAG = "state";
 static const uint32_t PEEK_MS = 5000;
 static const uint32_t SHH_MS = 2000;
 static const uint32_t DRAIN_MS = 50;
+// Save this long after the last change, so turning through Workshop options is one write
+static const uint32_t SAVE_DELAY_MS = 2000;
 
 AppState& AppState::instance() {
     static AppState inst;
@@ -68,6 +70,68 @@ AppState::AppState() {
 void AppState::attach() {
     commands = xQueueCreate(8, sizeof(UiCommand));
     lv_timer_create(drain, DRAIN_MS, nullptr);
+}
+
+// ---- Saved progress and settings ----
+
+static int clamp_int(int v, int lo, int hi) { return v < lo ? lo : (v > hi ? hi : v); }
+
+void AppState::loadSaved() {
+    SavedState s;
+    storage_load(&s);
+
+    // Flash could hold anything (an older firmware, a bad write): keep it in range
+    if (s.pet_name[0]) lv_subject_copy_string(&pet_name, s.pet_name);
+    lv_subject_copy_string(&user_name, s.user_name);
+    setPet(clamp_int(s.pet_body, 0, PET_BODY_COUNT - 1), clamp_int(s.pet_face, 0, PET_FACE_COUNT - 1),
+           clamp_int(s.pet_finish, 0, PET_FINISH_COUNT - 1));
+    const int study = SessionCore::snapStudy(s.study_min);
+    lv_subject_set_int(&study_min, study);
+    lv_subject_set_int(&break_min, SessionCore::clampBreak(study, s.break_min));
+    lv_subject_set_int(&always_show_timer, s.always_show_timer ? 1 : 0);
+    Session::instance().setXp(s.xp < 0 ? 0 : s.xp);
+    lv_subject_set_int(&xp, s.xp < 0 ? 0 : s.xp);
+
+    // From now on, any change to a saved value is written shortly after
+    persisting = true;
+    lv_subject_t *saved[] = {&pet_name, &pet_body, &pet_face, &pet_finish, &user_name,
+                             &study_min, &break_min, &always_show_timer, &xp};
+    for (lv_subject_t *subject : saved) {
+        lv_subject_add_observer(subject, [](lv_observer_t *, lv_subject_t *) { instance().scheduleSave(); }, nullptr);
+    }
+}
+
+SavedState AppState::currentState() {
+    SavedState s;
+    storage_defaults(&s);
+    s.xp = lv_subject_get_int(&xp);
+    s.pet_body = lv_subject_get_int(&pet_body);
+    s.pet_face = lv_subject_get_int(&pet_face);
+    s.pet_finish = lv_subject_get_int(&pet_finish);
+    strlcpy(s.pet_name, lv_subject_get_string(&pet_name), sizeof(s.pet_name));
+    strlcpy(s.user_name, lv_subject_get_string(&user_name), sizeof(s.user_name));
+    s.study_min = lv_subject_get_int(&study_min);
+    s.break_min = lv_subject_get_int(&break_min);
+    s.always_show_timer = lv_subject_get_int(&always_show_timer) != 0;
+    return s;
+}
+
+void AppState::scheduleSave() {
+    if (!persisting) return;
+    if (!save_timer) {
+        save_timer = lv_timer_create([](lv_timer_t *t) {
+            lv_timer_pause(t);
+            instance().saveNow();
+        }, SAVE_DELAY_MS, nullptr);
+    }
+    lv_timer_reset(save_timer);
+    lv_timer_resume(save_timer);
+}
+
+void AppState::saveNow() {
+    if (!persisting) return;
+    if (save_timer) lv_timer_pause(save_timer);
+    storage_save(currentState());
 }
 
 void AppState::post(const UiCommand &cmd) {
@@ -155,10 +219,14 @@ void AppState::handleEvent(const SessionEvent &event) {
             break;
         case SessionEventType::STUDY_ENDED:
             last_result = event.result;
+            lv_subject_set_int(&xp, event.result.xp);
+            saveNow(); // progress is saved the moment a session is scored
             nav.reset(ScreenID::INTERMISSION);
             break;
         case SessionEventType::ENDED_EARLY:
             last_result = event.result;
+            lv_subject_set_int(&xp, event.result.xp);
+            saveNow();
             nav.reset(ScreenID::HOME);
             break;
         case SessionEventType::SET_ENDED:

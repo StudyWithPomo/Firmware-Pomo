@@ -89,6 +89,7 @@ extern "C" void app_main(void)
 #else
     Navigator::instance().init(encoder_get_indev());
     AppState::instance().attach();
+    AppState::instance().loadSaved();
     Navigator::instance().reset(ScreenID::BOOT);
 #endif
     lv_timer_create([](lv_timer_t* t){ AppState::instance().update(); }, 1000, nullptr);

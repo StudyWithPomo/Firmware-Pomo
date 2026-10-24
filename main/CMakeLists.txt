@@ -12,6 +12,7 @@ idf_component_register(
 
     "app/session_core.cpp"
     "app/session.cpp"
+    "app/storage.cpp"
 
     "comms/link.cpp"
     "comms/bt_spp.cpp"

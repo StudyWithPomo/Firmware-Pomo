@@ -2,7 +2,9 @@
 
 Firmware for **Study Buddy**: a steampunk clockwork pet on your desk that grows when you focus. It runs a hidden Pomodoro timer, owns your XP and level, and reacts when the laptop dashboard ([Frontend-Pomo](https://github.com/StudyWithPomo/Frontend-Pomo)) reports a drift.
 
-Built on [Cube OS v1 alpha](https://github.com/ibbydiggy250/Cube_OS_v1_alpha) (ESP-IDF + LVGL 9). Work in progress: the screens, session timer and laptop link (USB and Bluetooth) run on the device; saved progress, the study circle and the buzzer/battery come next.
+Built on [Cube OS v1 alpha](https://github.com/ibbydiggy250/Cube_OS_v1_alpha) (ESP-IDF + LVGL 9). Work in progress: the screens, session timer, laptop link (USB and Bluetooth) and saved progress run on the device; the study circle and the buzzer/battery come next.
+
+XP, the pet, your name and the timer settings are kept in flash (NVS namespace `pomo`) and restored at boot. Settings are written about 2 s after they stop changing, and XP as soon as a session is scored. To start over, erase the flash with `idf.py -p PORT erase-flash` (this also forgets Bluetooth pairings).
 
 ## Hardware
 
