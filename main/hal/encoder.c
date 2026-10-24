@@ -3,7 +3,7 @@
 #include <stdatomic.h>
 #include <stdbool.h>
 
-#include "board_pins.h"
+#include "board.h"
 
 #include "driver/gpio.h"
 #include "driver/pulse_cnt.h"
@@ -41,11 +41,9 @@ static bool s_btn_hold_fired;
 // LVGL read callback state (LVGL task only)
 static bool s_click_down;
 
-#if HAS_ENCODER
-
 static void button_poll(void *arg)
 {
-    const bool raw_down = gpio_get_level(PIN_ENC_BTN) == 0; // active low, pull-up
+    const bool raw_down = gpio_get_level(board()->enc_btn) == 0; // active low, pull-up
 
     if (raw_down != s_btn_stable_down) {
         if (++s_btn_same_samples < BTN_DEBOUNCE_SAMPLES) return;
@@ -117,8 +115,9 @@ static esp_err_t pcnt_init(void)
 
     // Full x4 quadrature: each channel counts edges on one pin, direction from the other
     pcnt_channel_handle_t chan_a, chan_b;
-    const pcnt_chan_config_t a_cfg = { .edge_gpio_num = PIN_ENC_A, .level_gpio_num = PIN_ENC_B };
-    const pcnt_chan_config_t b_cfg = { .edge_gpio_num = PIN_ENC_B, .level_gpio_num = PIN_ENC_A };
+    const int pin_a = board()->enc_a, pin_b = board()->enc_b;
+    const pcnt_chan_config_t a_cfg = { .edge_gpio_num = pin_a, .level_gpio_num = pin_b };
+    const pcnt_chan_config_t b_cfg = { .edge_gpio_num = pin_b, .level_gpio_num = pin_a };
     ESP_RETURN_ON_ERROR(pcnt_new_channel(s_pcnt, &a_cfg, &chan_a), TAG, "channel A");
     ESP_RETURN_ON_ERROR(pcnt_new_channel(s_pcnt, &b_cfg, &chan_b), TAG, "channel B");
     pcnt_channel_set_edge_action(chan_a, PCNT_CHANNEL_EDGE_ACTION_DECREASE, PCNT_CHANNEL_EDGE_ACTION_INCREASE);
@@ -126,8 +125,8 @@ static esp_err_t pcnt_init(void)
     pcnt_channel_set_edge_action(chan_b, PCNT_CHANNEL_EDGE_ACTION_INCREASE, PCNT_CHANNEL_EDGE_ACTION_DECREASE);
     pcnt_channel_set_level_action(chan_b, PCNT_CHANNEL_LEVEL_ACTION_KEEP, PCNT_CHANNEL_LEVEL_ACTION_INVERSE);
 
-    gpio_set_pull_mode(PIN_ENC_A, GPIO_PULLUP_ONLY);
-    gpio_set_pull_mode(PIN_ENC_B, GPIO_PULLUP_ONLY);
+    gpio_set_pull_mode(pin_a, GPIO_PULLUP_ONLY);
+    gpio_set_pull_mode(pin_b, GPIO_PULLUP_ONLY);
 
     // accum_count needs watch points at the limits to fold overflows into the count
     ESP_RETURN_ON_ERROR(pcnt_unit_add_watch_point(s_pcnt, unit_cfg.high_limit), TAG, "watch high");
@@ -142,7 +141,7 @@ static esp_err_t pcnt_init(void)
 static esp_err_t button_init(void)
 {
     const gpio_config_t btn_cfg = {
-        .pin_bit_mask = 1ULL << PIN_ENC_BTN,
+        .pin_bit_mask = 1ULL << board()->enc_btn,
         .mode = GPIO_MODE_INPUT,
         .pull_up_en = GPIO_PULLUP_ENABLE,
         .pull_down_en = GPIO_PULLDOWN_DISABLE,
@@ -159,11 +158,14 @@ static esp_err_t button_init(void)
     ESP_RETURN_ON_ERROR(esp_timer_start_periodic(timer, BTN_POLL_MS * 1000), TAG, "button timer start");
     return ESP_OK;
 }
-#endif
 
 esp_err_t encoder_init(void)
 {
-#if HAS_ENCODER
+    if (!board()->has_encoder) {
+        // Nothing to set up: no PCNT unit or button poll timer, and no LVGL input device
+        ESP_LOGI(TAG, "No encoder on this board: touch only");
+        return ESP_OK;
+    }
     ESP_RETURN_ON_ERROR(pcnt_init(), TAG, "pcnt");
     ESP_RETURN_ON_ERROR(button_init(), TAG, "button");
 
@@ -171,21 +173,13 @@ esp_err_t encoder_init(void)
     lv_indev_set_type(s_indev, LV_INDEV_TYPE_ENCODER);
     lv_indev_set_read_cb(s_indev, encoder_read);
 
-    ESP_LOGI(TAG, "Encoder on A=%d B=%d BTN=%d", PIN_ENC_A, PIN_ENC_B, PIN_ENC_BTN);
+    ESP_LOGI(TAG, "Encoder on A=%d B=%d BTN=%d", board()->enc_a, board()->enc_b, board()->enc_btn);
     return ESP_OK;
-#else
-    // Boards without an encoder: nothing to set up, no PCNT unit or button
-    // poll timer to leave running.
-    return ESP_OK;
-#endif
 }
 
 lv_indev_t *encoder_get_indev(void)
 {
-#if !HAS_ENCODER
-    return NULL;
-#endif
-    return s_indev;
+    return s_indev; // NULL without an encoder
 }
 
 void encoder_set_hold_cb(encoder_hold_cb_t cb)

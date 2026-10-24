@@ -1,6 +1,6 @@
 #include "display.h"
 
-#include "board_pins.h"
+#include "board.h"
 
 #include "driver/spi_master.h"
 #include "driver/ledc.h"
@@ -26,8 +26,8 @@ static const char *TAG = "display";
 esp_lcd_panel_handle_t panel_handle;
 static esp_lcd_panel_io_handle_t io_handle;
 static lv_display_t *display_handle;
+static bool s_has_backlight;
 
-#if HAS_BACKLIGHT
 static esp_err_t backlight_init(void)
 {
     const ledc_timer_config_t timer_cfg = {
@@ -40,7 +40,7 @@ static esp_err_t backlight_init(void)
     ESP_RETURN_ON_ERROR(ledc_timer_config(&timer_cfg), TAG, "backlight timer");
 
     const ledc_channel_config_t channel_cfg = {
-        .gpio_num = PIN_LCD_BL,
+        .gpio_num = board()->lcd_bl,
         .speed_mode = BL_LEDC_MODE,
         .channel = BL_LEDC_CHANNEL,
         .timer_sel = BL_LEDC_TIMER,
@@ -48,21 +48,18 @@ static esp_err_t backlight_init(void)
         .hpoint = 0,
     };
     ESP_RETURN_ON_ERROR(ledc_channel_config(&channel_cfg), TAG, "backlight channel");
+    s_has_backlight = true;
     return ESP_OK;
 }
-#endif
 
 void display_set_brightness(uint8_t pct)
 {
-#if HAS_BACKLIGHT
+    // Board 2 ties the backlight to 3V3, so there's nothing to dim
+    if (!s_has_backlight) return;
     if (pct > 100) pct = 100;
     const uint32_t max_duty = (1u << BL_LEDC_RES) - 1;
     ledc_set_duty(BL_LEDC_MODE, BL_LEDC_CHANNEL, max_duty * pct / 100);
     ledc_update_duty(BL_LEDC_MODE, BL_LEDC_CHANNEL);
-#else
-    // Board 2 ties the backlight to 3V3, so there's nothing to dim.
-    (void)pct;
-#endif
 }
 
 esp_err_t init_ili9341_with_lvgl(void)
@@ -81,8 +78,8 @@ esp_err_t init_ili9341_with_lvgl(void)
 
     // 2) create panel io handle for SPI
     esp_lcd_panel_io_spi_config_t io_config = ILI9341_PANEL_IO_SPI_CONFIG(
-        PIN_LCD_CS,
-        PIN_LCD_DC,
+        board()->lcd_cs,
+        board()->lcd_dc,
         NULL,
         NULL);
     io_config.pclk_hz = 40 * 1000 * 1000;
@@ -91,7 +88,7 @@ esp_err_t init_ili9341_with_lvgl(void)
 
     // 3) create the ILI9341 panel driver
     esp_lcd_panel_dev_config_t ili_cfg = {
-        .reset_gpio_num = PIN_LCD_RST,
+        .reset_gpio_num = board()->lcd_rst,
         .rgb_ele_order = LCD_RGB_ELEMENT_ORDER_BGR,
         .bits_per_pixel = 16,
     };
@@ -106,10 +103,10 @@ esp_err_t init_ili9341_with_lvgl(void)
 
     // 5) PWM backlight, full brightness to start (board 2 ties the backlight to
     //    3V3, so there's nothing to drive)
-#if HAS_BACKLIGHT
-    ESP_ERROR_CHECK(backlight_init());
-    display_set_brightness(100);
-#endif
+    if (board()->lcd_bl != PIN_NONE) {
+        ESP_ERROR_CHECK(backlight_init());
+        display_set_brightness(100);
+    }
 
     // 6) Initialize LVGL port
     lvgl_port_cfg_t lvgl_cfg = ESP_LVGL_PORT_INIT_CONFIG();

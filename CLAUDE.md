@@ -37,24 +37,34 @@ Specs, in order of authority:
   - The boot log prints `[heap]` and `[stack] LVGL task` lines.
   - The user's local `sdkconfig` currently has diagnostics on (`CONFIG_FREERTOS_WATCHPOINT_END_OF_STACK`, `CONFIG_HEAP_POISONING_COMPREHENSIVE`). Turn them off during a build that is a full rebuild anyway.
 
-## Hardware (test board one, `main/board_pins.h`)
+## Hardware (`main/board.h`, `main/board.c`)
 
-Original ESP32 (needs Classic BT), 2.8" ILI9341 used landscape 320×240, XPT2046 resistive touch, rotary encoder with button, passive buzzer.
+Original ESP32 (needs Classic BT; NodeMCU-32S, no PSRAM), 2.8" ILI9341 used landscape 320×240, XPT2046 resistive touch, passive buzzer. One firmware for both demo boards: at boot `board_detect()` reads two config pins, each in three states (wired to GND, wired to 3V3, or unconnected, told apart by reading with the pull-up and then the pull-down). Drivers read their pins from `board()`.
 
-| Signal | GPIO |
-|---|---|
-| Shared SPI3 bus: MOSI / CLK / MISO | 23 / 18 / 19 |
-| LCD CS / DC / RST / BL (PWM) | 5 / 17 / 16 / 21 |
-| Touch CS / IRQ | 4 / 27 |
-| Encoder A / B / button | 25 / 33 / 32 |
-| Buzzer | 22 (no driver yet) |
-| Battery ADC | 34 (placeholder, `HAS_BATTERY` 0) |
+| CFG A (GPIO 13) | | CFG B (GPIO 26), board 1 only | |
+|---|---|---|---|
+| unconnected | board 2, no encoder, regular touch | unconnected | regular touch |
+| GND | board 1 with encoder | GND | touch flipped on X and Y |
+| 3V3 | board 1 without encoder | 3V3 | spare (regular for now) |
 
-Display and touch share one SPI bus: `display.c` initializes it, `touch.c` joins as a second device. Pins were changed by XtraCube (teammate). Ask before changing pins.
+Board 2 has no room for config wires, so "nothing wired" is board 2. The user's test board one needs GPIO 13 to GND.
+
+| Signal | Board 1 (test board one) | Board 2 (compact) |
+|---|---|---|
+| Shared SPI3 bus: MOSI / CLK / MISO | 23 / 18 / 19 | 23 / 18 / 19 |
+| LCD CS / DC / RST | 5 / 17 / 16 | 5 / 21 / 22 |
+| LCD backlight | 21 (PWM) | tied to 3V3 |
+| Touch CS / IRQ | 4 / 27 | 4 / 15 |
+| Encoder A / B / button | 25 / 33 / 32 (if CFG A is GND) | none |
+| Buzzer (no driver yet) | 22 | 2 |
+| Battery ADC | 34 placeholder, not fitted | none |
+
+Display and touch share one SPI bus: `display.c` initializes it, `touch.c` joins as a second device. Pins were set by XtraCube (teammate). Ask before changing pins. Free on both boards: 0, 12, 14, 35, 36, 39 (all with caveats: strapping, boot toggling, or no pulls).
 
 ## Architecture
 
 - `main/main.cpp`: start-up order, then logs heap:
+  0. `board_detect()` (config pins)
   1. NVS
   2. display
   3. touch

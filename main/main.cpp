@@ -14,7 +14,7 @@
 #include "hal/display.h"
 #include "hal/touch.h"
 #include "hal/encoder.h"
-#include "board_pins.h"
+#include "board.h"
 
 #include "ui/app_state.hpp"
 #include "ui/ui_root.hpp"
@@ -37,7 +37,8 @@ static void log_heap(const char *stage) { health_log_heap(stage); }
 extern "C" void app_main(void)
 {
     esp_log_level_set("*", ESP_LOG_INFO);
-    ESP_LOGI(TAG, "Starting Pomo on board %d", BOARD);
+    ESP_LOGI(TAG, "Starting Pomo...");
+    board_detect(); // before any driver: it picks the pins
     log_heap("boot");
 
     // NVS: Bluetooth keeps pairing keys here (and saved progress will live here too)
