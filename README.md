@@ -54,7 +54,7 @@ g++ -std=c++17 -Wall -I main test/circle_test.cpp main/app/circle_core.cpp -o ci
 
 ## Study circle (linked play)
 
-Pomo devices near each other form a study circle: each friend who is studying adds 1× XP (up to 3×), and the bonus pauses while any of them drifts. Every device joins automatically. Work in progress on the `linked-play` branch: the circle logic runs, and the ESP-NOW radio comes next.
+Pomo devices near each other form a study circle: each friend nearby adds 1× XP, studying or resting (up to 3×), and the bonus pauses while anyone studying drifts. Every device joins automatically. Work in progress on the `linked-play` branch: the circle logic runs, and the ESP-NOW radio comes next.
 
 To try it on one board, build with scripted friends:
 

@@ -126,9 +126,9 @@ public:
     // One camera focus tick; `label` is what to show if it turns into a drift. Ignored
     // outside study. tick() decides when the camera drift starts and ends.
     void setFocus(CameraState state, const char *label);
-    // From the study circle: friends in session (so multiplier = 1 + friends, capped) and
-    // whether any of them is drifting right now
-    void setCircle(int friends_in_session, bool friend_drifting);
+    // From the study circle: friends nearby, studying or not (so multiplier = 1 + friends,
+    // capped) and whether one who is studying is drifting right now
+    void setCircle(int friends, bool friend_drifting);
     void setXp(int xp) { xp_ = xp < 0 ? 0 : xp; }
 
     void snapshot(SessionSnapshot *out) const;

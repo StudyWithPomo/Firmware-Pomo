@@ -169,7 +169,8 @@ static void test_summary()
     CHECK_EQ(c.friendDrifting(), false);
     c.onBeacon(AVA, make("Ava", true, true), 1000);
     c.onBeacon(DEV, make("Dev", false, true, 82), 1000);   // nearby but resting
-    CHECK_EQ(c.friendsInSession(), 1);                     // only Ava counts
+    CHECK_EQ(c.count(), 2);                                // both set the multiplier
+    CHECK_EQ(c.friendsInSession(), 1);
     CHECK_EQ(c.friendDrifting(), false);
     c.onBeacon(DEV, make("Dev", false, false, 82), 1500);  // not studying: no pause
     CHECK_EQ(c.friendDrifting(), false);

@@ -8,7 +8,7 @@
 // Beacons arrive through circle_on_receive(). The radio (ESP-NOW) comes in milestone L2; until
 // then, building with POMO_FAKE_PEER=1 feeds scripted friends through the same path:
 //   Ava studies for 100 s (drifting from 40 to 55 s), then goes quiet for 20 s; repeats
-//   Dev is always nearby but resting (not in a session), so Ava alone sets the multiplier
+//   Dev is always nearby but resting (not in a session): 3× with both, 2× while Ava is quiet
 #include <stddef.h>
 #include <stdint.h>
 

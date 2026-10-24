@@ -301,9 +301,9 @@ void SessionCore::resetCamera()
     camera_reason_[0] = '\0';
 }
 
-void SessionCore::setCircle(int friends_in_session, bool friend_drifting)
+void SessionCore::setCircle(int friends, bool friend_drifting)
 {
-    circle_friends_ = friends_in_session < 0 ? 0 : friends_in_session;
+    circle_friends_ = friends < 0 ? 0 : friends;
     friend_drifting_ = friend_drifting;
     const int m = effectiveMultiplier();
     if (m < minute_mult_) minute_mult_ = m;

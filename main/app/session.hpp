@@ -23,7 +23,7 @@ public:
     void endSet();      // whole set -> idle (scored first if studying)
     void setDrift(bool active, const char *label, DriftKind kind = DriftKind::SITE);
     void setFocus(CameraState state, const char *label);
-    void setCircle(int friends_in_session, bool friend_drifting);
+    void setCircle(int friends, bool friend_drifting);
     void setXp(int xp);
 
     // Copy of the current state (any task)

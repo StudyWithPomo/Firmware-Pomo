@@ -3,8 +3,9 @@
 // tested on a PC. comms/circle.cpp feeds it beacons from ESP-NOW and a clock in ms.
 //
 // Every Pomo device nearby joins automatically: each one broadcasts a beacon about every
-// 1.5 s, and a device that has gone quiet for 6 s leaves the circle. Friends who are studying
-// add to the XP multiplier, and one of them drifting pauses the bonus (SessionCore::setCircle).
+// 1.5 s, and a device that has gone quiet for 6 s leaves the circle. Every friend nearby adds
+// to the XP multiplier, studying or not, and one who is studying and drifts pauses the bonus
+// (SessionCore::setCircle).
 #include <stddef.h>
 #include <stdint.h>
 
@@ -51,7 +52,7 @@ public:
     int count() const { return count_; }
     const CirclePeer &peer(int i) const { return peers_[i]; }
 
-    // For SessionCore::setCircle
+    // For SessionCore::setCircle, with count() (every friend nearby sets the multiplier)
     int friendsInSession() const;
     bool friendDrifting() const;  // a friend who is studying is drifting
 

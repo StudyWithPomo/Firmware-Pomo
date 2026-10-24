@@ -147,10 +147,10 @@ void Session::setFocus(CameraState state, const char *label)
     xSemaphoreGive(mutex);
 }
 
-void Session::setCircle(int friends_in_session, bool friend_drifting)
+void Session::setCircle(int friends, bool friend_drifting)
 {
     xSemaphoreTake(mutex, portMAX_DELAY);
-    core.setCircle(friends_in_session, friend_drifting);
+    core.setCircle(friends, friend_drifting);
     publish(nullptr);
     xSemaphoreGive(mutex);
 }

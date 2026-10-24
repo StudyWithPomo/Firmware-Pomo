@@ -63,7 +63,7 @@ static Beacon own_beacon(int last_pct, uint16_t seq)
 // Pass a changed circle to the session rules and the UI
 static void publish(const CircleCore &core)
 {
-    Session::instance().setCircle(core.friendsInSession(), core.friendDrifting());
+    Session::instance().setCircle(core.count(), core.friendDrifting());
 
     AppState::Friend list[AppState::MAX_FRIENDS] = {};
     const int count = core.count() < AppState::MAX_FRIENDS ? core.count() : AppState::MAX_FRIENDS;
