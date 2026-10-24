@@ -50,8 +50,73 @@ static void test_break_ranges()
     CHECK_EQ(SessionCore::breakMin(60), 12); CHECK_EQ(SessionCore::breakMax(60), 20);
     CHECK_EQ(SessionCore::clampBreak(25, 20), 8);
     CHECK_EQ(SessionCore::clampBreak(25, 1), 5);
-    CHECK_EQ(SessionCore::snapStudy(30), 25);
-    CHECK_EQ(SessionCore::snapStudy(100), 60);
+    CHECK_EQ(SessionCore::breakMin(90), 18); CHECK_EQ(SessionCore::breakMax(90), 30);
+    CHECK_EQ(SessionCore::breakMin(35), 7); CHECK_EQ(SessionCore::breakMax(35), 11);
+}
+
+static void test_study_lengths()
+{
+    puts("study lengths: 15-90 in steps of 5");
+    CHECK_EQ(SessionCore::snapStudy(30), 30);
+    CHECK_EQ(SessionCore::snapStudy(35), 35);
+    CHECK_EQ(SessionCore::snapStudy(32), 30);
+    CHECK_EQ(SessionCore::snapStudy(33), 35);
+    CHECK_EQ(SessionCore::snapStudy(10), 15);
+    CHECK_EQ(SessionCore::snapStudy(-5), 15);
+    CHECK_EQ(SessionCore::snapStudy(100), 90);
+    CHECK_EQ(SessionCore::snapStudy(88), 90);
+    CHECK_EQ(SessionCore::snapStudy(25), 25);
+    // the long rest is never shorter than the longest allowed break
+    CHECK_EQ(SessionCore::longRestMin(15), 15);
+    CHECK_EQ(SessionCore::longRestMin(25), 15);
+    CHECK_EQ(SessionCore::longRestMin(60), 20);
+    CHECK_EQ(SessionCore::longRestMin(90), 30);
+
+    SessionCore s;
+    CHECK_EQ(s.start(35, 9), true);
+    SessionSnapshot snap;
+    s.snapshot(&snap);
+    CHECK_EQ(snap.study_min, 35);
+    CHECK_EQ(snap.break_min, 9);
+    CHECK_EQ(snap.total_s, 35 * 60);
+}
+
+static void test_long_rest_for_long_sessions()
+{
+    puts("90 min sessions get a 30 min long rest");
+    SessionCore s;
+    s.start(90, 18);
+    for (int i = 1; i <= 3; i++) {
+        CHECK_EQ(run(s, 90 * 60), (int)SessionEventType::STUDY_ENDED);
+        CHECK_EQ(run(s, 18 * 60), (int)SessionEventType::BREAK_OVER);
+        SessionEvent e;
+        CHECK_EQ(s.endBreak(&e), true);
+    }
+    CHECK_EQ(run(s, 90 * 60), (int)SessionEventType::STUDY_ENDED);
+    CHECK_EQ((int)s.phase(), (int)Phase::LONG_REST);
+    SessionSnapshot snap;
+    s.snapshot(&snap);
+    CHECK_EQ(snap.remaining_s, 30 * 60);
+    CHECK_EQ(run(s, 30 * 60), (int)SessionEventType::SET_ENDED);
+}
+
+static void test_earned_in_snapshot()
+{
+    puts("earned XP shows during study, then resets");
+    SessionCore s;
+    s.start(15, 3);
+    SessionSnapshot snap;
+    s.snapshot(&snap);
+    CHECK_EQ(snap.earned, 0);
+    run(s, 3 * 60);                 // three focused minutes, no circle: 1 XP each
+    s.snapshot(&snap);
+    CHECK_EQ(snap.earned, 3);
+    CHECK_EQ(snap.xp, 0);           // not scored until the session ends
+    run(s, 12 * 60);                // session ends, break starts
+    s.snapshot(&snap);
+    CHECK_EQ((int)snap.phase, (int)Phase::BREAK);
+    CHECK_EQ(snap.earned, 0);
+    CHECK_EQ(snap.xp, 15);
 }
 
 static void test_full_session_and_break()
@@ -550,6 +615,9 @@ static void test_copy_utf8()
 int main()
 {
     test_break_ranges();
+    test_study_lengths();
+    test_long_rest_for_long_sessions();
+    test_earned_in_snapshot();
     test_full_session_and_break();
     test_drift_minutes();
     test_multiplier();

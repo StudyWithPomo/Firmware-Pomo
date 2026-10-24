@@ -4,17 +4,12 @@
 
 #include "utilities.h"
 
-constexpr int SessionCore::STUDY_OPTIONS[];
-
 int SessionCore::snapStudy(int study_min)
 {
-    int best = STUDY_OPTIONS[0];
-    for (int i = 1; i < STUDY_OPTION_COUNT; i++) {
-        const int d = STUDY_OPTIONS[i] - study_min;
-        const int best_d = best - study_min;
-        if ((d < 0 ? -d : d) < (best_d < 0 ? -best_d : best_d)) best = STUDY_OPTIONS[i];
-    }
-    return best;
+    if (study_min <= STUDY_MIN) return STUDY_MIN;
+    if (study_min >= STUDY_MAX) return STUDY_MAX;
+    const int snapped = (study_min + STUDY_STEP / 2) / STUDY_STEP * STUDY_STEP;  // halves round up
+    return snapped < STUDY_MIN ? STUDY_MIN : (snapped > STUDY_MAX ? STUDY_MAX : snapped);
 }
 
 int SessionCore::clampBreak(int study_min, int break_min)
@@ -54,7 +49,7 @@ int SessionCore::phaseS(Phase phase) const
     switch (phase) {
         case Phase::STUDY: return study_min_ * 60;
         case Phase::BREAK: return break_min_ * 60;
-        case Phase::LONG_REST: return LONG_REST_MIN * 60;
+        case Phase::LONG_REST: return longRestMin(study_min_) * 60;
         default: return 0;
     }
 }
@@ -334,5 +329,6 @@ void SessionCore::snapshot(SessionSnapshot *out) const
     out->multiplier = effectiveMultiplier();
     out->base_multiplier = baseMultiplier();
     out->xp = xp_;
+    out->earned = phase_ == Phase::STUDY ? earned_xp_ : 0;
     out->level = levelFor(xp_);
 }
