@@ -20,6 +20,8 @@ const char *screen_name(ScreenID id);
 // encoder. Add focusable widgets to the group in knob order.
 typedef void (*ScreenBuilder)(lv_obj_t *parent, lv_group_t *group);
 
+void screen_home(lv_obj_t *parent, lv_group_t *group);
+
 // Knob navigation test: a menu of every screen. Stands in for screens not built yet.
 void screen_placeholder(lv_obj_t *parent, lv_group_t *group);
 

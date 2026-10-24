@@ -17,6 +17,7 @@
 #include "ui/ui_root.hpp"
 #include "ui/navigator.hpp"
 #include "ui/screens.hpp"
+#include "ui/theme.hpp"
 
 // Set to 1 to boot into the touch test screen (tap the corners to check rotation and axes)
 #ifndef POMO_TOUCH_TEST
@@ -66,12 +67,13 @@ extern "C" void app_main(void)
     {
         ESP_LOGE(TAG, "Failed to initialize encoder: %s", esp_err_to_name(ret_enc));
     }
+    theme::init();
     ui_root_init();
 #if POMO_TOUCH_TEST
     screen_touch_test(ui_get_content_area());
 #else
     Navigator::instance().init(encoder_get_indev());
-    Navigator::instance().reset(ScreenID::BOOT);
+    Navigator::instance().reset(ScreenID::HOME); // Boot screen arrives in milestone 4
 #endif
     lv_timer_create([](lv_timer_t* t){ AppState::instance().update(); }, 1000, nullptr);
     lvgl_port_unlock();

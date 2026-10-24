@@ -12,7 +12,7 @@ static const size_t MAX_HISTORY = 8;
 Navigator& Navigator::instance() {
     static Navigator inst({
         {ScreenID::BOOT, screen_placeholder},
-        {ScreenID::HOME, screen_placeholder},
+        {ScreenID::HOME, screen_home},
         {ScreenID::WIND, screen_placeholder},
         {ScreenID::FOCUS, screen_placeholder},
         {ScreenID::INTERMISSION, screen_placeholder},
