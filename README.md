@@ -2,7 +2,7 @@
 
 Firmware for **Study Buddy**: a steampunk clockwork pet on your desk that grows when you focus. It runs a hidden Pomodoro timer, owns your XP and level, and reacts when the laptop dashboard ([Frontend-Pomo](https://github.com/StudyWithPomo/Frontend-Pomo)) reports a drift.
 
-Built on [Cube OS v1 alpha](https://github.com/ibbydiggy250/Cube_OS_v1_alpha) (ESP-IDF + LVGL 9). Work in progress: the phone UI from Cube OS is still in place and is being replaced milestone by milestone.
+Built on [Cube OS v1 alpha](https://github.com/ibbydiggy250/Cube_OS_v1_alpha) (ESP-IDF + LVGL 9). Work in progress: the full screen flow and session timer run on the device; the laptop link, saved progress, study circle and Bluetooth come next.
 
 ## Hardware
 
@@ -35,6 +35,14 @@ idf.py -p COM4 flash monitor
 ```
 
 `sdkconfig` is generated from `sdkconfig.defaults` and isn't committed. Delete `sdkconfig` after changing the defaults so they take effect. The defaults turn on Classic BT only (no BLE), Wi-Fi/BT coexistence, and the 1.5 MB single-app partition table.
+
+## Session rules test
+
+The timer and XP rules (`main/app/session_core.cpp`) have no ESP-IDF dependencies, so they can be tested on a PC with any C++17 compiler:
+
+```bash
+g++ -std=c++17 -Wall -I main test/session_test.cpp main/app/session_core.cpp -o session_test && ./session_test
+```
 
 ## Laptop protocol
 

@@ -18,6 +18,7 @@
 #include "ui/navigator.hpp"
 #include "ui/screens.hpp"
 #include "ui/theme.hpp"
+#include "app/session.hpp"
 
 // Set to 1 to boot into the touch test screen (tap the corners to check rotation and axes)
 #ifndef POMO_TOUCH_TEST
@@ -60,6 +61,8 @@ extern "C" void app_main(void)
     }
     ESP_LOGI(TAG, "Touch input initialized successfully");
 
+    Session::instance().init();
+
     // The LVGL task is already running, so every LVGL call from here needs the lock
     lvgl_port_lock(0);
     esp_err_t ret_enc = encoder_init();
@@ -73,7 +76,8 @@ extern "C" void app_main(void)
     screen_touch_test(ui_get_content_area());
 #else
     Navigator::instance().init(encoder_get_indev());
-    Navigator::instance().reset(ScreenID::HOME); // Boot screen arrives in milestone 4
+    AppState::instance().attach();
+    Navigator::instance().reset(ScreenID::BOOT);
 #endif
     lv_timer_create([](lv_timer_t* t){ AppState::instance().update(); }, 1000, nullptr);
     lvgl_port_unlock();

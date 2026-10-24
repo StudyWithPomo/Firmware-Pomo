@@ -1,4 +1,5 @@
 #pragma once
+#include <stddef.h>
 #include <stdint.h>
 
 #include "lvgl.h"
@@ -64,11 +65,48 @@ lv_obj_t *chip(lv_obj_t *parent, const char *text, const lv_font_t *font, bool f
 // given it is shown only while focused (the design's ▸).
 void focusable(lv_obj_t *obj, lv_group_t *group, lv_obj_t *pointer = nullptr);
 
+// For screens where turning always changes a value (Wind, Intermission): puts the group in
+// edit mode and keeps it there, since LVGL leaves edit mode whenever focus moves
+void always_editing(lv_group_t *group);
+
 // A hidden "▸ " label for focusable()
 lv_obj_t *pointer(lv_obj_t *parent, const lv_font_t *font);
 
 // Outlined button: [▸] text ........ detail. Focusable; returns the button.
 lv_obj_t *button(lv_obj_t *parent, lv_group_t *group, const char *text, const lv_font_t *font,
                  const char *detail = nullptr, const lv_font_t *detail_font = nullptr);
+
+// Outline-only focus (the Workshop's rows): highlight outline, labels turn BRASS_HI
+void focusable_outline(lv_obj_t *obj, lv_group_t *group, lv_obj_t *pointer = nullptr);
+
+// Menu row: 32 px tall with a divider under it, "[▸] text ..... detail". Focusable.
+// Returns the row; the detail label (if any) is child 1.
+lv_obj_t *list_row(lv_obj_t *parent, lv_group_t *group, const char *text,
+                   const char *detail = nullptr, const lv_font_t *detail_font = nullptr,
+                   uint32_t detail_color = BRASS);
+
+// ---- Nixie tubes ----
+
+struct NixieSpec {
+    int tube_w, tube_h;
+    int colon_w;
+    int radius;
+    int gap;
+    const lv_font_t *font;  // digits font (font_plex_22/28/50)
+};
+
+// MM:SS in four tubes and a colon. Unlit rows have empty tubes.
+lv_obj_t *nixie_row(lv_obj_t *parent, const NixieSpec &spec, bool lit);
+void nixie_set(lv_obj_t *row, int seconds);
+
+// "MM:SS"
+void format_mmss(char *buf, size_t size, int seconds);
+
+// ---- Study circle lamps ----
+
+// "● Ava · focused" (verdigris lamp) or "● Dev · drifting" (copper lamp)
+lv_obj_t *lamp(lv_obj_t *parent, const char *name, bool focused);
+// Refill `container` with a lamp per friend in AppState, or `empty_text` when alone
+void fill_lamps(lv_obj_t *container, const char *empty_text = "Studying solo");
 
 } // namespace theme

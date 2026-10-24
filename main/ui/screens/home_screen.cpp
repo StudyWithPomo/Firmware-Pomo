@@ -37,6 +37,8 @@ static void update_begin_detail(lv_observer_t *observer, lv_subject_t *subject)
                           (int)lv_subject_get_int(&state.study_min), (int)lv_subject_get_int(&state.break_min));
 }
 
+static void on_begin(lv_event_t *e) { AppState::instance().startSession(); }
+
 static void go(lv_event_t *e)
 {
     Navigator::instance().navigate((ScreenID)(intptr_t)lv_event_get_user_data(e));
@@ -84,7 +86,7 @@ void screen_home(lv_obj_t *parent, lv_group_t *group)
     lv_obj_t *begin_detail = lv_obj_get_child(begin, 1);
     lv_subject_add_observer_obj(&state.study_min, update_begin_detail, begin_detail, nullptr);
     lv_subject_add_observer_obj(&state.break_min, update_begin_detail, begin_detail, nullptr);
-    lv_obj_add_event_cb(begin, go, LV_EVENT_CLICKED, (void *)(intptr_t)ScreenID::WIND);
+    lv_obj_add_event_cb(begin, on_begin, LV_EVENT_CLICKED, nullptr);
 
     // Knob order: Begin -> Circle -> Menu
     focusable(card, group, card_ptr);
