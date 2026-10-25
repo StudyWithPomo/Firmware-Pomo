@@ -127,19 +127,26 @@ Cube OS was imported into this repo, then rebuilt milestone by milestone. The us
 | `5daebea` A | Touch and knob parity: ◂ Back, −/+ buttons, grab rows, Focus Peek/End session buttons, ◂ − glyphs. Tested on hardware. |
 | `9741998` B | New menu structure: Home tiles, Study screen (replaces Wind, Menu, Timer settings), Pet hub, Status, Wardrobe, Playground placeholder, session log in NVS. Tested on hardware. |
 | C | Break -> next session: `READY` phase and Ready screen, Start now / End set on Intermission, petting hearts, protocol phase `"ready"`. Plus test timing (30 s phases) behind a Study screen chip. |
+| PR #2 | Sidak: study length 15-90 in steps of 5, long rest = max(15, longest break), `earned` in `state`. Tested on hardware. |
+| `linked-play` (M7) | Study circle over ESP-NOW, by invite (see "Linked play" below). Tested on two boards. |
 
 Other notes:
 - A screenshot gallery of every screen was published as a private artifact, "Pomo Screen Preview".
 - Teammates push to `main` too. Always `git fetch` before pushing; rebase local unpushed commits onto `origin/main`, re-run tests, preview and build, then push.
 
-## Unfinished from the original brief
+## Linked play (M7, done)
 
-- **M7 ESP-NOW study circle ("linked play", branch `linked-play`, not merged, not yet tested on hardware):**
+- **ESP-NOW study circle, by invite. Tested on two boards; not yet tested with the laptop on Bluetooth at the same time, or a board leaving range mid-session.**
   - `app/circle_core.*` (pure, `test/circle_test.cpp`) and `comms/circle.*`. ESP-NOW broadcast on channel 1, no router, no esp_netif. Wire format v2: beacon `{name, phase, index, focused, pct, seq, group}` every 1.5 s (and on change), plus INVITE and DECLINE. A peer drops after 6 s silence.
   - By invite (user, 2026-10-24): the host invites up to 2 free friends from the Circle screen with its lengths; the guest's Invite screen has Accept / Decline; the session starts on all once every invite is answered (or the host presses Start). The group stays in step for the whole set (a member in BREAK/READY follows another starting the next session); ending the set leaves it.
   - The multiplier counts only group members who are studying; only their drift pauses it. Nearby friends who aren't in the group add nothing.
   - `-DPOMO_FAKE_PEER=1`: Ava accepts invites, Dev declines and invites this device.
+  - Inviting from the Circle screen opens the Study screen first; its Start reads "Invite Sidak" and sends the invite with the lengths chosen there. A second invite while hosting uses the group's lengths.
   - Two test boards: COM5 (Ibrahim, pet Doug) and COM9 (Sidak, pet Mochi); names set over USB with a `config` line.
+  - Frontend follow-up: the `circle` message doesn't say who is in this device's group yet.
+
+## Unfinished from the original brief
+
 - **Polish (the original "M9"; Anthony used that number for protocol v2):**
   - buzzer chime at the start of each break (LEDC on GPIO 22)
   - battery gauge behind `HAS_BATTERY` (ADC, smoothed, shown on Home)
