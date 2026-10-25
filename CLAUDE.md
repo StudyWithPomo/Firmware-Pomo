@@ -41,7 +41,7 @@ Specs, in order of authority:
 
 Original ESP32 (needs Classic BT; NodeMCU-32S, no PSRAM), 2.8" ILI9341 used landscape 320×240, XPT2046 resistive touch, passive buzzer. One firmware for both demo boards: at boot `board_detect()` reads two config pins, each in three states (wired to GND, wired to 3V3, or unconnected, told apart by reading with the pull-up and then the pull-down). Drivers read their pins from `board()`.
 
-| CFG A (GPIO 13) | | CFG B (GPIO 26), board 1 only | |
+| CFG A (GPIO 13) | | CFG B (GPIO 26), both boards | |
 |---|---|---|---|
 | unconnected | board 2, no encoder, regular touch | unconnected | regular touch |
 | GND | board 1 with encoder | GND | touch flipped on X and Y |
@@ -133,8 +133,9 @@ Cube OS was imported into this repo, then rebuilt milestone by milestone. The us
 | C | Break -> next session: `READY` phase and Ready screen, Start now / End set on Intermission, petting hearts, protocol phase `"ready"`. Plus test timing (30 s phases) behind a Study screen chip. |
 | PR #2 | Sidak: study length 15-90 in steps of 5, long rest = max(15, longest break), `earned` in `state`. Tested on hardware. |
 | `linked-play` (M7) | Study circle over ESP-NOW, by invite (see "Linked play" below). Tested on two boards. |
-| `frontend-parity` (local, not pushed) | Cross-referenced with Pomo-App `main` (`09fdd80`): heartbeat pause, pet.js's `sad` mood, session score on Intermission ("88% focused, +66 XP. Mochi is most proud."), level-up and ended-early notices (`theme::notice`), "Laptop" lamp on Home, Roman session numbers ("Session II of IV"), drift wording per kind ("Gone Idle", camera labels as the dashboard's), "+N XP so far" on Peek. Preview, soak and IDF-flag compile only; **not flashed**. Focus now peaks at ~50 KB of LVGL memory (was ~45). |
-| Buzzer | Haptic-style clicks and timer chimes (`hal/buzzer.*`). Compile-checked with the IDF flags; **not yet heard on hardware** (volumes and pitches may need tuning in `buzzer.h`). |
+| `frontend-parity` (merged to `main`) | Cross-referenced with Pomo-App `main` (`09fdd80`): heartbeat pause, pet.js's `sad` mood, session score on Intermission ("88% focused, +66 XP. Mochi is most proud."), level-up and ended-early notices (`theme::notice`), "Laptop" lamp on Home, Roman session numbers ("Session II of IV"), drift wording per kind ("Gone Idle", camera labels as the dashboard's), "+N XP so far" on Peek. Preview, soak and IDF-flag compile only; **not flashed**. Focus now peaks at ~50 KB of LVGL memory (was ~45). |
+| Buzzer | Haptic-style clicks and timer chimes (`hal/buzzer.*`). Then louder clicks and longer, louder alarms, tuned by the user. |
+| `f9154b1` | XtraCube: CFG B (touch flip) now applies to board 2 too. |
 
 Other notes:
 - A screenshot gallery of every screen was published as a private artifact, "Pomo Screen Preview".
