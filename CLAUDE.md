@@ -56,7 +56,7 @@ Board 2 has no room for config wires, so "nothing wired" is board 2. The user's 
 | LCD backlight | 21 (PWM) | tied to 3V3 |
 | Touch CS / IRQ | 4 / 27 | 4 / 15 |
 | Encoder A / B / button | 25 / 33 / 32 (if CFG A is GND) | none |
-| Buzzer (no driver yet) | 22 | 2 |
+| Buzzer (passive, LEDC timer 1 / channel 1) | 22 | 2 |
 | Battery ADC | 34 placeholder, not fitted | none |
 
 Display and touch share one SPI bus: `display.c` initializes it, `touch.c` joins as a second device. Pins were set by XtraCube (teammate). Ask before changing pins. Free on both boards: 0, 12, 14, 35, 36, 39 (all with caveats: strapping, boot toggling, or no pulls).
@@ -76,6 +76,10 @@ Display and touch share one SPI bus: `display.c` initializes it, `touch.c` joins
   - `display.c` handles the ILI9341, landscape via hardware rotation, PWM backlight `display_set_brightness()`, and the **16 KB LVGL task stack**.
   - `touch.c` handles the XPT2046 and calibrates raw readings.
   - `encoder.c` reads the knob with PCNT x4 quadrature. A short press reaches LVGL as a click on release; a 2 s hold calls a hold callback.
+  - `buzzer.*`: every sound is a note table in `BUZZ_PATTERNS` in `buzzer.h` (pitch, volume as PWM duty 0-50, ms, repeats, priority), played by an `esp_timer`. A sound only interrupts one of the same or lower priority (feedback < pet < notice < alarm). `buzzer_play()` is safe from any task.
+    - Feedback: `theme::focusable()` ticks on every press (touch or knob), Back has its own, −/+ a lighter one, each knob detent a faint one (in `encoder.c`).
+    - Pet: `pet_hearts()` coos, the Focus "shh" a low hum.
+    - Timer (in `AppState::handleEvent`): session start, loud chime when study ends (bigger at the long rest), alarm-clock beeps when the break runs out, falling chime when the long rest ends the set, soft falling notes when ended by hand. Also a nudge when a drift starts and a ding-dong for a circle invite.
 - `app/`:
   - `session_core.*`: pure C++ rules, unit tested. A break running out goes to `Phase::READY` (event `BREAK_OVER`) and waits; `endBreak()` starts the next session, `endSet()` finishes. The long rest running out still ends the set.
   - `session.*`: a 1 s `esp_timer`, a mutex, a snapshot queue and event queues (`subscribe()` gives each listener its own).
@@ -129,6 +133,7 @@ Cube OS was imported into this repo, then rebuilt milestone by milestone. The us
 | C | Break -> next session: `READY` phase and Ready screen, Start now / End set on Intermission, petting hearts, protocol phase `"ready"`. Plus test timing (30 s phases) behind a Study screen chip. |
 | PR #2 | Sidak: study length 15-90 in steps of 5, long rest = max(15, longest break), `earned` in `state`. Tested on hardware. |
 | `linked-play` (M7) | Study circle over ESP-NOW, by invite (see "Linked play" below). Tested on two boards. |
+| Buzzer | Haptic-style clicks and timer chimes (`hal/buzzer.*`). Compile-checked with the IDF flags; **not yet heard on hardware** (volumes and pitches may need tuning in `buzzer.h`). |
 
 Other notes:
 - A screenshot gallery of every screen was published as a private artifact, "Pomo Screen Preview".
@@ -148,7 +153,6 @@ Other notes:
 ## Unfinished from the original brief
 
 - **Polish (the original "M9"; Anthony used that number for protocol v2):**
-  - buzzer chime at the start of each break (LEDC on GPIO 22)
   - battery gauge behind `HAS_BATTERY` (ADC, smoothed, shown on Home)
   - dim the backlight during focus (not while peeking or drifting)
 - **Frontend work (other repo):**

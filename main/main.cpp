@@ -14,6 +14,7 @@
 #include "hal/display.h"
 #include "hal/touch.h"
 #include "hal/encoder.h"
+#include "hal/buzzer.h"
 #include "board.h"
 
 #include "ui/app_state.hpp"
@@ -70,6 +71,14 @@ extern "C" void app_main(void)
         return;
     }
     ESP_LOGI(TAG, "Touch input initialized successfully");
+
+    esp_err_t ret_buzz = buzzer_init();
+    if (ret_buzz != ESP_OK)
+    {
+        // Keep running: everything works silently
+        ESP_LOGE(TAG, "Buzzer failed to start: %s", esp_err_to_name(ret_buzz));
+    }
+    buzzer_play(BUZZ_BOOT);
 
     Session::instance().init();
 

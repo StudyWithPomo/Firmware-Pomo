@@ -8,6 +8,7 @@
 #include "esp_timer.h"
 #include "freertos/queue.h"
 #include "hal/encoder.h"
+#include "hal/buzzer.h"
 #include "system/system.hpp"
 
 // ---- Queues ----
@@ -100,6 +101,11 @@ void sim_encoder_hold(void)
 {
     if (s_hold_cb) s_hold_cb();
 }
+
+// ---- Buzzer (silent) ----
+
+extern "C" esp_err_t buzzer_init(void) { return ESP_OK; }
+extern "C" void buzzer_play(buzz_t) {}
 
 // ---- System clock (fixed, settable) ----
 

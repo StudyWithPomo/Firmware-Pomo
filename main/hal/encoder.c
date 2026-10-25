@@ -4,6 +4,7 @@
 #include <stdbool.h>
 
 #include "board.h"
+#include "buzzer.h"
 
 #include "driver/gpio.h"
 #include "driver/pulse_cnt.h"
@@ -80,6 +81,7 @@ static void encoder_read(lv_indev_t *indev, lv_indev_data_t *data)
         if (steps != 0) {
             s_last_count += steps * ENC_COUNTS_PER_DETENT; // keep the remainder
             data->enc_diff = (int16_t)(ENC_REVERSE ? -steps : steps);
+            buzzer_play(BUZZ_DETENT);
         }
     }
 

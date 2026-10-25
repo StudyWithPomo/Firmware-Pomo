@@ -6,6 +6,7 @@
 #include <ui/app_state.hpp>
 #include <ui/navigator.hpp>
 #include <ui/pet/pet_data.h>
+#include <hal/buzzer.h>
 
 namespace theme {
 
@@ -194,6 +195,8 @@ static void apply_focus(lv_event_t *e, lv_state_t state)
 
 static void on_focus_change(lv_event_t *e) { apply_focus(e, LV_STATE_USER_1); }
 static void on_outline_focus_change(lv_event_t *e) { apply_focus(e, LV_STATE_USER_2); }
+// Every button and row ticks when pressed, by touch or the knob
+static void on_press_tick(lv_event_t *e) { buzzer_play(BUZZ_TAP); }
 
 void focusable(lv_obj_t *obj, lv_group_t *group, lv_obj_t *ptr)
 {
@@ -203,6 +206,7 @@ void focusable(lv_obj_t *obj, lv_group_t *group, lv_obj_t *ptr)
     lv_obj_add_style(obj, &s_grabbed, LV_STATE_FOCUSED | LV_STATE_EDITED);
     lv_obj_add_event_cb(obj, on_focus_change, LV_EVENT_FOCUSED, ptr);
     lv_obj_add_event_cb(obj, on_focus_change, LV_EVENT_DEFOCUSED, ptr);
+    lv_obj_add_event_cb(obj, on_press_tick, LV_EVENT_PRESSED, nullptr);
     if (group) lv_group_add_obj(group, obj);
 }
 
@@ -213,6 +217,7 @@ void focusable_outline(lv_obj_t *obj, lv_group_t *group, lv_obj_t *ptr)
     lv_obj_add_style(obj, &s_grabbed, LV_STATE_FOCUSED | LV_STATE_EDITED);
     lv_obj_add_event_cb(obj, on_outline_focus_change, LV_EVENT_FOCUSED, ptr);
     lv_obj_add_event_cb(obj, on_outline_focus_change, LV_EVENT_DEFOCUSED, ptr);
+    lv_obj_add_event_cb(obj, on_press_tick, LV_EVENT_PRESSED, nullptr);
     if (group) lv_group_add_obj(group, obj);
 }
 
@@ -279,6 +284,8 @@ lv_obj_t *list_row(lv_obj_t *parent, lv_group_t *group, const char *text,
 }
 
 static void on_back(lv_event_t *e) { Navigator::instance().back(); }
+// Runs after focusable()'s tick and replaces it
+static void on_back_press(lv_event_t *e) { buzzer_play(BUZZ_BACK); }
 
 Header header(lv_obj_t *content, const char *title, const lv_font_t *font)
 {
@@ -290,6 +297,7 @@ Header header(lv_obj_t *content, const char *title, const lv_font_t *font)
     lv_obj_set_style_pad_ver(h.back, 2, 0);
     focusable(h.back, nullptr);
     lv_obj_add_event_cb(h.back, on_back, LV_EVENT_CLICKED, nullptr);
+    lv_obj_add_event_cb(h.back, on_back_press, LV_EVENT_PRESSED, nullptr);
     h.title = label(left, title, font);
     return h;
 }
@@ -299,6 +307,7 @@ static void on_step(lv_event_t *e)
     lv_obj_t *target = (lv_obj_t *)lv_event_get_user_data(e);
     uint32_t key = (uint32_t)(uintptr_t)lv_obj_get_user_data(lv_event_get_current_target_obj(e));
     lv_group_t *group = lv_obj_get_group(target);
+    buzzer_play(BUZZ_STEP);
     if (lv_event_get_code(e) == LV_EVENT_PRESSED && group && lv_group_get_focused(group) != target)
         lv_group_focus_obj(target);
     lv_obj_send_event(target, LV_EVENT_KEY, &key);
@@ -385,6 +394,7 @@ static void hop_exec(void *obj, int32_t v) { lv_obj_set_style_translate_y((lv_ob
 void pet_hearts(lv_obj_t *porthole)
 {
     if (!porthole) return;
+    buzzer_play(BUZZ_PET);
     lv_area_t from;
     lv_obj_get_coords(porthole, &from);
     const int32_t cx = (from.x1 + from.x2) / 2;

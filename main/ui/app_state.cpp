@@ -11,6 +11,7 @@
 #include <ui/pet/pet_data.h>
 #include <comms/link.hpp>
 #include <comms/circle.hpp>
+#include <hal/buzzer.h>
 
 #include "esp_log.h"
 
@@ -230,6 +231,15 @@ void AppState::drain(lv_timer_t *t) {
 }
 
 void AppState::applySnapshot(const SessionSnapshot &snap) {
+    // A drift starting mid-study nudges (camera or laptop; ending one is silent)
+    if (snap.phase == Phase::STUDY && snap.drifting && !lv_subject_get_int(&focus_state) &&
+        (Phase)lv_subject_get_int(&phase) == Phase::STUDY)
+        buzzer_play(BUZZ_DRIFT);
+    // SET_ENDED comes both from the long rest running out (loud) and from ending the set by
+    // hand, here or from the laptop (soft). Snapshots arrive before events, so remember this.
+    if (snap.phase == Phase::LONG_REST) rest_running_out = snap.remaining_s <= 1;
+    else if (snap.phase != Phase::IDLE) rest_running_out = false;
+
     lv_subject_set_int(&phase, (int)snap.phase);
     lv_subject_set_int(&session_index, snap.session_index);
     lv_subject_set_int(&session_test, snap.test ? 1 : 0);
@@ -253,9 +263,12 @@ void AppState::handleEvent(const SessionEvent &event) {
     switch (event.type) {
         case SessionEventType::STARTED:
         case SessionEventType::BREAK_ENDED:
+            buzzer_play(BUZZ_SESSION_START);
             nav.reset(ScreenID::FOCUS);
             break;
         case SessionEventType::STUDY_ENDED:
+            buzzer_play(event.result.session_index >= SessionCore::SESSIONS_PER_SET
+                            ? BUZZ_LONG_REST : BUZZ_BREAK_START);
             last_result = event.result;
             lv_subject_set_int(&xp, event.result.xp);
             recordSession(event.result, true);
@@ -263,6 +276,7 @@ void AppState::handleEvent(const SessionEvent &event) {
             nav.reset(ScreenID::INTERMISSION);
             break;
         case SessionEventType::ENDED_EARLY:
+            buzzer_play(BUZZ_END);
             last_result = event.result;
             lv_subject_set_int(&xp, event.result.xp);
             recordSession(event.result, false);
@@ -270,9 +284,12 @@ void AppState::handleEvent(const SessionEvent &event) {
             nav.reset(ScreenID::HOME);
             break;
         case SessionEventType::SET_ENDED:
+            buzzer_play(rest_running_out ? BUZZ_SET_DONE : BUZZ_END);
+            rest_running_out = false;
             nav.reset(ScreenID::HOME);
             break;
         case SessionEventType::BREAK_OVER:
+            buzzer_play(BUZZ_BREAK_OVER);
             nav.reset(ScreenID::READY);
             break;
     }
@@ -348,6 +365,7 @@ void AppState::peek() {
 }
 
 void AppState::shh() {
+    buzzer_play(BUZZ_SHH);
     shh_active = true;
     refreshMood();
     if (!shh_timer) {
@@ -416,6 +434,7 @@ void AppState::setFriends(const Friend *list, int count, const CircleView &view)
     lv_subject_set_int(&circle_role, (int)view.role);
     Navigator &nav = Navigator::instance();
     const bool on_invite = nav.getCurrent() == ScreenID::INVITE;
+    if (view.role == GroupRole::INVITED && was != GroupRole::INVITED) buzzer_play(BUZZ_INVITE);
     if (view.role == GroupRole::INVITED && was != GroupRole::INVITED && !on_invite) {
         nav.navigate(ScreenID::INVITE);
     } else if (view.role == GroupRole::NONE && on_invite) {

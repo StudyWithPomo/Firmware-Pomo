@@ -168,4 +168,5 @@ private:
     bool persisting = false;
     bool shh_active = false;
     bool petted_active = false;
+    bool rest_running_out = false;  // the last snapshot was the long rest's final second
 };

@@ -9,6 +9,7 @@ idf_component_register(
     "hal/display.c" 
     "hal/touch.c" 
     "hal/encoder.c"
+    "hal/buzzer.c"
     "system/system.cpp"
     "system/health.cpp"
 

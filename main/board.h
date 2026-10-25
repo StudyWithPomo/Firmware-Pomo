@@ -55,7 +55,7 @@ typedef struct {
     bool has_encoder;
     int enc_a, enc_b, enc_btn;
 
-    int buzzer;             // passive, LEDC PWM (no driver yet)
+    int buzzer;             // passive, LEDC PWM (hal/buzzer.c)
     int battery_adc;        // ADC1 through a divider; PIN_NONE when not fitted
 } board_t;
 
