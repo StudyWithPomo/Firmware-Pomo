@@ -88,7 +88,7 @@ Display and touch share one SPI bus: `display.c` initializes it, `touch.c` joins
   - `pet_care.*`: pure C++ rules, unit tested: gears (1 per completed session, +2 for the set, max 12), feeding (costs a gear; refused when empty or after 3 in 30 min), hunger from time since fed (full < 30 min, content < 12 h, peckish < 24 h, hungry). Hunger only moves once the laptop has sent the time. Spec: `docs/PET_PLAY_AND_CARE.md`.
   - `storage.*`: NVS namespace `pomo`; only changed keys are written. Includes the session log (`SessionLog` in `session_core`: sessions, sets, focused minutes, today).
 - `comms/`:
-  - `link.*`: JSON lines over UART0, per-transport `LineAssembler`, cJSON. Pet care goes out as a `pet` message; the laptop's `{"t":"feed"}` runs the device's own feed (spec: `docs/PET_PLAY_AND_CARE.md`). Every line from the laptop calls `Session::laptopHeard()`; the dashboard's `ping` (every 2 s) arms the heartbeat. After 6 s of silence the laptop's drift is dropped and a study session pauses (`state.paused`, Focus shows "Laptop Lost" with **Go on alone**) until the laptop is heard again. A dashboard that never pings never pauses anything.
+  - `link.*`: JSON lines over UART0, per-transport `LineAssembler`, cJSON. Pet care goes out as a `pet` message; the laptop's `{"t":"feed"}` runs the device's own feed. The pet's look goes out as `look` (config's field names) after `hello`, on any change, and as a config's confirmation; the device's look wins (spec: `docs/PET_PLAY_AND_CARE.md`). Every line from the laptop calls `Session::laptopHeard()`; the dashboard's `ping` (every 2 s) arms the heartbeat. After 6 s of silence the laptop's drift is dropped and a study session pauses (`state.paused`, Focus shows "Laptop Lost" with **Go on alone**) until the laptop is heard again. A dashboard that never pings never pauses anything.
   - `bt_spp.*`: Bluedroid Classic SPP feeding the same handler.
 - `ui/`:
   - `app_state.*`: all `lv_subject`s. It drains the session queues and a `UiCommand` queue in a 50 ms `lv_timer`, navigates on session events, and autosaves 2 s after a change (XP immediately when a session is scored).
@@ -106,6 +106,7 @@ Display and touch share one SPI bus: `display.c` initializes it, `touch.c` joins
 **Rules that matter:**
 - **LVGL is not thread-safe.** Only the LVGL task touches LVGL. Other tasks post to queues (`Session`, `AppState::post`). Any LVGL call outside it needs `lvgl_port_lock`.
 - **Keep the object tree shallow.** LVGL redraws recursively at about 0.5 KB of stack per nesting level. A 7 KB stack crashed the Workshop.
+- **Watch flash.** The app is ~1.40 MB of its 1.5 MB partition (5% free as of the final push); ESP-IDF warns. Growing it means a partition-table change (4 MB flash has room): ask first.
 - **Watch memory.** About 110 KB is free after Bluetooth (BT costs about 96 KB). LVGL uses the system heap (`CONFIG_LV_USE_CLIB_MALLOC`); the Focus screen with its confirm dialog needs about 40 KB.
 - **Content-sized flex rows must start-align.** `LV_FLEX_ALIGN_END` on an `LV_SIZE_CONTENT` row pushes the first child outside its box and clips it.
 - **Leave `CONFIG_XPT2046_CONVERT_ADC_TO_COORDS` off.** `touch.c` errors at compile time if it's on, because every tap would land at (0,0).
@@ -140,7 +141,9 @@ Cube OS was imported into this repo, then rebuilt milestone by milestone. The us
 | Buzzer | Haptic-style clicks and timer chimes (`hal/buzzer.*`). Then louder clicks and longer, louder alarms, tuned by the user. |
 | `f9154b1` | XtraCube: CFG B (touch flip) now applies to board 2 too. |
 | `8c93a56` D | Playground (wind the key, the dance, feeding gears, sleep), petting everywhere (tap and stroke). Not confirmed on hardware. |
-| E | Gears and hunger: studying earns gears, feeding spends them, the pet goes full → content → peckish → hungry. Gears bar on Home and the Playground, the `hungry` face, the `pet` message. Not yet flashed. |
+| `5ed8b62` E | Gears and hunger: studying earns gears, feeding spends them, the pet goes full → content → peckish → hungry. Gears bar on Home and the Playground, the `hungry` face, the `pet` message. |
+| `5876154` | Laptop → device `{"t":"feed"}`: runs the device's own feed; answered by the `pet` message. |
+| final | Device → laptop `{"t":"look"}`: two-way look sync, the device's look wins. Schema for `feed` and `look` on Pomo-App's `device-feed` branch. Built; not confirmed on hardware. The user called this the final firmware push (2026-10-25). |
 
 Other notes:
 - A screenshot gallery of every screen was published as a private artifact, "Pomo Screen Preview".

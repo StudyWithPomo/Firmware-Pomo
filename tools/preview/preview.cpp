@@ -553,6 +553,27 @@ int main(int argc, char **argv)
     pet_sheet(true);
     shot("pets_moods", "Pet: the 8 moods");
 
+    // Look sync: a config from the laptop with the same look gets no reply; a changed one gets
+    // one look message (its confirmation), however many fields changed
+    {
+        puts("look check: config with the same look (expect no look line)");
+        AppState::UiCommand cfg = {};
+        cfg.type = AppState::UiCommand::CONFIG;
+        cfg.body = lv_subject_get_int(&state.pet_body);
+        cfg.face = lv_subject_get_int(&state.pet_face);
+        cfg.finish = lv_subject_get_int(&state.pet_finish);
+        state.post(cfg);
+        pump(300);
+        puts("look check: config with a new name, body and colour (expect one look line)");
+        cfg.has_pet_name = true;
+        strcpy(cfg.pet_name, "Biscuit");
+        cfg.body = PET_BODY_DOG;
+        cfg.finish = PET_FINISH_PEWTER;
+        state.post(cfg);
+        pump(300);
+        puts("look check done");
+    }
+
     fclose(s_index);
     if (const char *rounds = getenv("POMO_SOAK")) soak(atoi(rounds));
     return 0;

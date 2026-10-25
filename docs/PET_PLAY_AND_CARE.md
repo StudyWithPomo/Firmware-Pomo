@@ -283,7 +283,35 @@ No fields. It feeds the pet one gear **exactly as the device's own Feed does** (
 
 So the dashboard's Feed button should send `{"t":"feed"}`, then show whatever the `pet` message reports. It shouldn't change its own gear count first.
 
-In the schema (Pomo-App `src/pomo/web/schema/pomo-device.schema.json`) it's the `feed` def. The dashboard's outgoing allowlist (`OUT` in `src/pomo/web/app.js`) has a matching `feed` entry.
+In the schema (Pomo-App `src/pomo/web/schema/pomo-device.schema.json`) it's the `feed` def.
+
+### Device → laptop: `look` (two-way look sync)
+
+```json
+{"t": "look", "name": "Mochi", "body": "bot", "face": "plain", "color": "brass"}
+```
+
+The pet's look **as the device shows it**, with exactly the field names and values `config`'s `pet` already uses. The finish goes in `color`, as in `config`.
+
+| Field | Values |
+|---|---|
+| `name` | 1–10 characters (the device keeps at most 10 bytes of UTF-8) |
+| `body` | `bot`, `cat`, `dog` |
+| `face` | `plain`, `monocle` |
+| `color` | `brass`, `copper`, `pewter`, `verdigris` |
+
+All four fields every time, and at most ~150 bytes even with an escaped name (the limit is 256).
+
+**When it's sent**
+1. **Right after `hello`:** at boot, and whenever a laptop connects over Bluetooth. The order is `hello`, then `look`, then `pet`.
+2. **Whenever the look changes on the device,** in the Wardrobe or anywhere else.
+3. **After a `config` that changed the look,** as its confirmation, carrying what the device actually applied. A `config` that changed nothing gets no `look`.
+
+Several fields changing together (a Wardrobe pick, or a `config` setting name, body and colour) give **one** `look`: the device waits 100 ms for the changes to settle. Unknown values in a `config` are ignored by the device, so the confirming `look` shows what it kept.
+
+**The device is the source of truth.** The dashboard should draw the pet from the latest `look`, not from what it last sent in `config`.
+- **Today's dashboard** sends `config` (with its pet) on every `hello`, in `onDevice()` → `sendConfig()`. After a reconnect that overwrites the device's look with the laptop's. To make the device win, the dashboard should wait for the `look` that follows `hello` and adopt it, and only send `pet` in `config` when the user changes the look in the dashboard. `time` and `tz` are still fine to send on every `hello`.
+- **In the schema** it's the `look` def. The dashboard's outgoing allowlist (`OUT` in `src/pomo/web/app.js`) has a matching `feed` entry.
 
 ### Test cases (the device's rules tests; the dashboard can use the same)
 
@@ -310,6 +338,11 @@ In the schema (Pomo-App `src/pomo/web/schema/pomo-device.schema.json`) it's the 
 ---
 
 ## Log
+
+### 2026-10-25: two-way look sync (`{"t":"look"}`)
+- New device → laptop message `look`, with `config`'s pet field names and values (`name`, `body`, `face`, `color`). Sent right after `hello`, on any look change on the device, and as the confirmation of a `config` that changed the look. One message per change, even when several fields change. See "Device → laptop: `look`".
+- The device is the source of truth for the look. The dashboard currently re-sends its own pet in `config` on every `hello`; that needs changing so the device's look wins (details in that section).
+- Schema: a `look` def in Pomo-App's `pomo-device.schema.json` (on the `device-feed` branch, with `feed`).
 
 ### 2026-10-25: the laptop can feed the pet (`{"t":"feed"}`)
 - New laptop → device command `feed` (no fields). It runs the device's own `feed()`: on the Playground exactly as its Feed button (toss and catch, or the refusal), and anywhere else the same feed with just the sound. The device answers with its usual `pet` message (`fed` / `empty` / `stuffed`). The device decides; the laptop never sends counts. See "Laptop → device: `feed`" under Protocol additions.

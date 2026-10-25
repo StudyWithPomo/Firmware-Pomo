@@ -1,6 +1,7 @@
 // Host implementations of the ESP-IDF, FreeRTOS and HAL pieces the UI code touches.
 // Single-threaded: the preview drives timers and LVGL from one loop.
 
+#include <stdio.h>
 #include <deque>
 #include <vector>
 #include <string.h>
@@ -131,6 +132,10 @@ int SystemAPI::setCurrentTime(long epochSeconds) const
 
 void link_send_circle() {}
 void link_send_pet(int, Hunger, long, const char *, int) {}
+void link_send_look(const char *name, int body, int face, int finish)
+{
+    printf("link: look %s body %d face %d finish %d\n", name, body, face, finish);
+}
 
 // ---- Study circle (the preview sets friends directly) ----
 

@@ -167,6 +167,9 @@ private:
     void noticeResult(const SessionResult &result, bool early);
     SavedState currentState();
     void scheduleSave();
+    // The look subjects changed: tell the laptop shortly (one look message for a setPet())
+    void lookChanged();
+    void sendLook();
     void saveNow();
 
     Friend friend_list[MAX_FRIENDS] = {};
@@ -183,6 +186,8 @@ private:
     lv_timer_t *shh_timer = nullptr;
     lv_timer_t *petted_timer = nullptr;
     lv_timer_t *save_timer = nullptr;
+    lv_timer_t *look_timer = nullptr;
+    struct { char name[11]; int body, face, finish; } sent_look = {"", -1, -1, -1};
     bool persisting = false;
     bool shh_active = false;
     bool petted_active = false;

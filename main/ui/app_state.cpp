@@ -98,7 +98,42 @@ void AppState::attach() {
     friend_updates = xQueueCreate(1, sizeof(FriendUpdate));
     lv_subject_add_observer(&user_name, update_circle_name, nullptr);
     lv_subject_add_observer(&pet_name, update_circle_name, nullptr);
+    // The device owns the pet's look: any change (Wardrobe, a config from the laptop) is sent
+    // back as a look message, which for a config is its confirmation
+    lv_subject_t *look[] = {&pet_name, &pet_body, &pet_face, &pet_finish};
+    for (lv_subject_t *subject : look)
+        lv_subject_add_observer(subject, [](lv_observer_t *, lv_subject_t *) { instance().lookChanged(); }, nullptr);
     lv_timer_create(drain, DRAIN_MS, nullptr);
+}
+
+// Debounced: setPet() and a config change several subjects at once, so wait for them all
+static const uint32_t LOOK_SEND_DELAY_MS = 100;
+
+void AppState::lookChanged() {
+    if (!look_timer) {
+        look_timer = lv_timer_create([](lv_timer_t *t) {
+            lv_timer_pause(t);
+            instance().sendLook();
+        }, LOOK_SEND_DELAY_MS, nullptr);
+    }
+    lv_timer_reset(look_timer);
+    lv_timer_resume(look_timer);
+}
+
+void AppState::sendLook() {
+    const char *name = lv_subject_get_string(&pet_name);
+    const int body = lv_subject_get_int(&pet_body);
+    const int face = lv_subject_get_int(&pet_face);
+    const int finish = lv_subject_get_int(&pet_finish);
+    // Only a real change: a config that set the same look gets no reply
+    if (strcmp(name, sent_look.name) == 0 && body == sent_look.body && face == sent_look.face &&
+        finish == sent_look.finish) return;
+    strlcpy(sent_look.name, name, sizeof(sent_look.name));
+    sent_look.body = body;
+    sent_look.face = face;
+    sent_look.finish = finish;
+    link_send_look(name, body, face, finish);
+    ESP_LOGI(TAG, "Look: %s, body %d, face %d, finish %d", name, body, face, finish);
 }
 
 // ---- Saved progress and settings ----

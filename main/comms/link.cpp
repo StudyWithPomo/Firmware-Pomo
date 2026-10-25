@@ -98,7 +98,13 @@ static const char *drift_kind_name(DriftKind k)
     }
 }
 
+// The pet's look in config's names, both ways (config "pet": body, face, color)
+static const char *const BODIES[] = {"bot", "cat", "dog"};
+static const char *const FACES[] = {"plain", "monocle"};
+static const char *const FINISHES[] = {"brass", "copper", "pewter", "verdigris"};
+
 static void send_pet(const char *event, int earned);
+static void send_look();
 
 void link_send_hello()
 {
@@ -106,7 +112,46 @@ void link_send_hello()
     cJSON_AddStringToObject(o, "t", "hello");
     cJSON_AddStringToObject(o, "fw", POMO_FW_VERSION);
     send_json(o);
-    send_pet("hello", 0); // so a laptop that just connected knows the gears and hunger
+    send_look();          // so a laptop that just connected shows the device's pet...
+    send_pet("hello", 0); // ...and knows the gears and hunger
+}
+
+// The pet's look as AppState last reported it. The name is a string, so it's copied under a lock.
+static portMUX_TYPE s_look_lock = portMUX_INITIALIZER_UNLOCKED;
+static struct {
+    bool known;
+    char name[11];
+    int8_t body, face, finish;
+} s_look;
+
+static void send_look()
+{
+    taskENTER_CRITICAL(&s_look_lock);
+    const auto look = s_look;
+    taskEXIT_CRITICAL(&s_look_lock);
+    if (!look.known) return;
+    // At most ~150 bytes even if every name byte had to be escaped: well under the 256 limit
+    cJSON *o = cJSON_CreateObject();
+    cJSON_AddStringToObject(o, "t", "look");
+    cJSON_AddStringToObject(o, "name", look.name);
+    cJSON_AddStringToObject(o, "body", BODIES[look.body]);
+    cJSON_AddStringToObject(o, "face", FACES[look.face]);
+    cJSON_AddStringToObject(o, "color", FINISHES[look.finish]);
+    send_json(o);
+}
+
+static int8_t in_range(int value, int count) { return (int8_t)(value >= 0 && value < count ? value : 0); }
+
+void link_send_look(const char *name, int body, int face, int finish)
+{
+    taskENTER_CRITICAL(&s_look_lock);
+    s_look.known = true;
+    strlcpy(s_look.name, name ? name : "", sizeof(s_look.name));
+    s_look.body = in_range(body, PET_BODY_COUNT);
+    s_look.face = in_range(face, PET_FACE_COUNT);
+    s_look.finish = in_range(finish, PET_FINISH_COUNT);
+    taskEXIT_CRITICAL(&s_look_lock);
+    send_look();
 }
 
 // The pet's care as AppState last reported it (written by the LVGL task, read here)
@@ -194,10 +239,6 @@ static int lookup(const char *value, const char *const *names, int count)
 
 static void handle_config(const cJSON *msg)
 {
-    static const char *const BODIES[] = {"bot", "cat", "dog"};
-    static const char *const FACES[] = {"plain", "monocle"};
-    static const char *const FINISHES[] = {"brass", "copper", "pewter", "verdigris"};
-
     AppState::UiCommand cmd = {};
     cmd.type = AppState::UiCommand::CONFIG;
     cmd.body = cmd.face = cmd.finish = -1;
