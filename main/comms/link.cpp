@@ -119,6 +119,7 @@ static void send_state(const SessionSnapshot &s)
     cJSON_AddNumberToObject(o, "mult", s.multiplier);
     cJSON_AddNumberToObject(o, "xp", s.xp);
     cJSON_AddNumberToObject(o, "level", s.level);
+    if (s.phase == Phase::STUDY) cJSON_AddNumberToObject(o, "earned", s.earned);
     send_json(o);
 }
 

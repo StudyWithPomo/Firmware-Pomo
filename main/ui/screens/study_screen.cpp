@@ -117,16 +117,9 @@ static void on_key(lv_event_t *e)
     const int step = key == LV_KEY_RIGHT ? 1 : -1;
 
     switch ((int)(intptr_t)lv_obj_get_user_data(r)) {
-        case SET_STUDY: {
-            const int current = lv_subject_get_int(&state.study_min);
-            int i = 0;
-            while (i < SessionCore::STUDY_OPTION_COUNT - 1 && SessionCore::STUDY_OPTIONS[i] < current) i++;
-            i += step;
-            if (i < 0) i = 0;
-            if (i >= SessionCore::STUDY_OPTION_COUNT) i = SessionCore::STUDY_OPTION_COUNT - 1;
-            state.setStudyLength(SessionCore::STUDY_OPTIONS[i]);
+        case SET_STUDY: // 15-90 in steps of 5; setStudyLength clamps the ends
+            state.setStudyLength(lv_subject_get_int(&state.study_min) + step * SessionCore::STUDY_STEP);
             break;
-        }
         case SET_BREAK:
             state.setBreakLength(lv_subject_get_int(&state.break_min) + step);
             break;

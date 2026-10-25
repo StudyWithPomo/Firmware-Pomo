@@ -71,13 +71,14 @@ struct SessionSnapshot {
     int base_multiplier;    // what the circle earns when nobody is drifting
     int xp;
     int level;
+    int earned;             // XP earned so far this study session (added to xp when it's scored)
     bool test;              // test timing (see SessionCore::TEST_PHASE_S)
 };
 
 class SessionCore {
 public:
     static constexpr int SESSIONS_PER_SET = 4;
-    static constexpr int LONG_REST_MIN = 15;
+    static constexpr int LONG_REST_MIN = 15;    // shortest long rest; long sessions get longer ones
     static constexpr int XP_PER_LEVEL = 500;
     static constexpr int DRIFT_MINUTE_S = 15;   // a minute with 15+ s of drift is a drift minute
     static constexpr int PENALTY_PCT = 50;      // under this, no XP and -10
@@ -94,16 +95,23 @@ public:
     static constexpr int TEST_MINUTE_S = 10;
     static constexpr int TEST_DRIFT_MINUTE_S = 3;
 
-    // Study lengths offered by the UI
-    static constexpr int STUDY_OPTIONS[] = {15, 25, 45, 60};
-    static constexpr int STUDY_OPTION_COUNT = 4;
+    // Study lengths: 15 to 90 minutes in steps of 5
+    static constexpr int STUDY_MIN = 15;
+    static constexpr int STUDY_MAX = 90;
+    static constexpr int STUDY_STEP = 5;
 
     // Break must be 1/5 to 1/3 of study time: 15 -> 3-5, 25 -> 5-8, 45 -> 9-15, 60 -> 12-20
     static int breakMin(int study_min) { return (study_min + 4) / 5; }
     static int breakMax(int study_min) { return study_min / 3; }
     static int clampBreak(int study_min, int break_min);
-    // Nearest allowed study length
+    // Nearest allowed study length: rounded to the nearest 5, clamped to 15-90
     static int snapStudy(int study_min);
+    // Long rest after the set: never shorter than the longest allowed break (90 -> 30)
+    static int longRestMin(int study_min)
+    {
+        const int b = breakMax(study_min);
+        return b > LONG_REST_MIN ? b : LONG_REST_MIN;
+    }
     static int levelFor(int xp) { return xp / XP_PER_LEVEL + 1; }
 
     // Starts session 1 of a set, or from READY the set's next session (with these lengths).
