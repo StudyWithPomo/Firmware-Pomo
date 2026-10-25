@@ -1,10 +1,13 @@
 // Study circle: the friends nearby, a row each, and studying together by invite. Tapping (or
-// pressing) a free friend's row invites them, with this device's study and break lengths.
-// While hosting, Start (once someone joined) and Cancel sit under the list; the session also
-// starts by itself once every invite is answered. The badge is the multiplier the group earns.
+// pressing) a free friend's row opens the Study screen to choose the lengths, where Start
+// becomes "Invite Sidak". Once hosting, the group's lengths are set, so inviting a second
+// friend sends it straight away. While hosting, Start (once someone joined) and Cancel sit
+// under the list; the session also starts by itself once every invite is answered. The badge
+// is the multiplier the group earns.
 // ◂ Back (the knob's last stop) or hold goes back.
 
 #include <ui/screens.hpp>
+#include <ui/navigator.hpp>
 #include <ui/app_state.hpp>
 #include <ui/theme.hpp>
 #include <comms/circle.hpp>
@@ -63,9 +66,14 @@ static void on_row(lv_event_t *e)
     const int i = (int)(intptr_t)lv_event_get_user_data(e);
     int count = 0;
     const AppState::Friend *friends = state.friends(&count);
-    if (i >= count || !invitable(friends[i], state.circleView())) return;
-    circle_invite(friends[i].mac, lv_subject_get_int(&state.study_min), lv_subject_get_int(&state.break_min),
-                  lv_subject_get_int(&state.test_timing) != 0);
+    const AppState::CircleView &view = state.circleView();
+    if (i >= count || !invitable(friends[i], view)) return;
+    if (view.role == GroupRole::HOSTING) {
+        circle_invite(friends[i].mac, view.study, view.brk, view.test);
+        return;
+    }
+    state.setInviteTarget(&friends[i]);
+    Navigator::instance().navigate(ScreenID::STUDY);
 }
 
 static void on_start(lv_event_t *e) { circle_start(); }

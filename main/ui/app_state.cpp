@@ -395,6 +395,14 @@ void AppState::setPet(int body, int face, int finish) {
     lv_subject_set_int(&pet_finish, finish);
 }
 
+void AppState::setInviteTarget(const Friend *f) {
+    invite_target = {};
+    if (!f) return;
+    invite_target.active = true;
+    memcpy(invite_target.mac, f->mac, sizeof(invite_target.mac));
+    strlcpy(invite_target.name, f->name, sizeof(invite_target.name));
+}
+
 void AppState::setFriends(const Friend *list, int count, const CircleView &view) {
     if (count > MAX_FRIENDS) count = MAX_FRIENDS;
     memcpy(friend_list, list, sizeof(Friend) * count);

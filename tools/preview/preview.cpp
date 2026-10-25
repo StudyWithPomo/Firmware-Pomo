@@ -323,6 +323,10 @@ int main(int argc, char **argv)
     nav_reset(ScreenID::HOME);
     nav_go(ScreenID::CIRCLE);
     shot("08_circle", "Study circle: tap a friend to invite them");
+    click_focused(); // Ava: choose the lengths first
+    shot("08_circle_invite_study", "Study, opened to invite Ava");
+    Navigator::instance().back();
+    pump(50);
 
     AppState::CircleView hosting = {};
     hosting.role = GroupRole::HOSTING;

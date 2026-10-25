@@ -5,12 +5,15 @@
 //   Touch: − / + on the length rows, tap "Always show" to toggle it, Start, ◂ Back.
 // The "Test" chip in the corner switches on test timing (30 s phases) for trying the flow;
 // it's off again after a restart.
+// Opened from the Circle screen to invite a friend, Start reads "Invite Sidak": it sends the
+// invite with these lengths and goes back to the Circle. Leaving any other way sends nothing.
 
 #include <ui/screens.hpp>
 #include <ui/navigator.hpp>
 #include <ui/app_state.hpp>
 #include <ui/theme.hpp>
 #include <app/session_core.hpp>
+#include <comms/circle.hpp>
 
 #include "lvgl.h"
 
@@ -61,7 +64,20 @@ static void update_totals(lv_observer_t *observer, lv_subject_t *subject)
                           log.focused_min / 60, log.focused_min % 60);
 }
 
-static void on_start(lv_event_t *e) { AppState::instance().startSession(); }
+static void on_start(lv_event_t *e)
+{
+    AppState &state = AppState::instance();
+    const AppState::InviteTarget target = state.inviteTarget();
+    if (!target.active) {
+        state.startSession();
+        return;
+    }
+    circle_invite(target.mac, lv_subject_get_int(&state.study_min), lv_subject_get_int(&state.break_min),
+                  lv_subject_get_int(&state.test_timing) != 0);
+    Navigator::instance().back();
+}
+
+static void on_delete(lv_event_t *e) { AppState::instance().setInviteTarget(nullptr); }
 
 static void on_test(lv_event_t *e)
 {
@@ -81,8 +97,11 @@ static void update_test_chip(lv_observer_t *observer, lv_subject_t *subject)
 static void update_start(lv_observer_t *observer, lv_subject_t *subject)
 {
     lv_obj_t *start = lv_observer_get_target_obj(observer);
-    lv_label_set_text(lv_obj_get_child(lv_obj_get_child(start, 0), 1),
-                      lv_subject_get_int(subject) ? "Start test run" : "Start");
+    lv_obj_t *text = lv_obj_get_child(lv_obj_get_child(start, 0), 1);
+    const AppState::InviteTarget &target = AppState::instance().inviteTarget();
+    const bool test = lv_subject_get_int(subject);
+    if (target.active) lv_label_set_text_fmt(text, "Invite %s%s", target.name, test ? " · test run" : "");
+    else lv_label_set_text(text, test ? "Start test run" : "Start");
 }
 
 // Re-render a row's value (to add or drop the "< >" edit marks)
@@ -158,6 +177,7 @@ void screen_study(lv_obj_t *parent, lv_group_t *group)
     AppState &state = AppState::instance();
     s_group = group;
     lv_obj_t *content = frame(parent);
+    lv_obj_add_event_cb(content, on_delete, LV_EVENT_DELETE, nullptr);
 
     Header top = header(content, "Study");
     lv_obj_t *test = chip(top.row, "", &font_fell_12);

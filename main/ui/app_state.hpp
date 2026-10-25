@@ -33,6 +33,14 @@ public:
         bool can_start;         // HOSTING with someone joined
     };
 
+    // The friend the Study screen is setting up an invite for: Circle -> Study, where Start
+    // becomes "Invite Sidak" and sends the invite with the lengths chosen there
+    struct InviteTarget {
+        bool active;
+        uint8_t mac[6];
+        char name[11];
+    };
+
     // A change requested by another task (the laptop link), applied in the LVGL task
     struct UiCommand {
         enum Type : uint8_t { CONFIG, PEEK, LINK_SEEN } type;
@@ -124,6 +132,9 @@ public:
 
     const Friend *friends(int *count) const { *count = friend_count; return friend_list; }
     const CircleView &circleView() const { return circle_view; }
+    // nullptr clears it
+    void setInviteTarget(const Friend *f);
+    const InviteTarget &inviteTarget() const { return invite_target; }
     const SessionResult &lastResult() const { return last_result; }
     const SessionLog &log() const { return session_log; }
     // Today as a SessionLog day number, or 0 while the clock isn't set
@@ -145,6 +156,7 @@ private:
     Friend friend_list[MAX_FRIENDS] = {};
     int friend_count = 0;
     CircleView circle_view = {};
+    InviteTarget invite_target = {};
     SessionResult last_result = {};
     SessionLog session_log = {};
     QueueHandle_t commands = nullptr;
