@@ -74,9 +74,9 @@ void board_detect(void)
     } else {
         s_board = BOARD_1;
         s_board.has_encoder = a == CFG_GND;
-        s_board.touch_flip = b == CFG_GND;
-        if (b == CFG_3V3) ESP_LOGW(TAG, "CFG B (GPIO %d) on 3V3 means nothing yet: regular touch", PIN_CFG_B);
     }
+    s_board.touch_flip = b == CFG_GND;
+    if (b == CFG_3V3) ESP_LOGW(TAG, "CFG B (GPIO %d) on 3V3 means nothing yet: regular touch", PIN_CFG_B);
 
     ESP_LOGI(TAG, "CFG A (GPIO %d) %s, CFG B (GPIO %d) %s -> board %d, %s, %s touch", PIN_CFG_A, level_name(a),
              PIN_CFG_B, level_name(b), s_board.id, s_board.has_encoder ? "encoder" : "no encoder",
