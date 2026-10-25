@@ -5,6 +5,7 @@
 #include <app/circle_core.hpp>
 #include <app/session_core.hpp>
 #include <app/storage.hpp>
+#include <app/pet_care.hpp>
 
 // Reactive app state. Screens observe these subjects and never read globals directly.
 // Subjects are only touched from the LVGL task: background work (the session timer, the
@@ -101,6 +102,10 @@ public:
     // Study log: bumps whenever log() changes (screens showing "today" also watch time_subject)
     lv_subject_t log_version;
 
+    // Pet care (app/pet_care.hpp): gears earned by studying and spent on feeding, and hunger
+    lv_subject_t gears;             // 0..pet_care::MAX_GEARS
+    lv_subject_t hunger;            // Hunger, re-checked every second
+
     // Before the laptop sets the clock the RTC counts from 1970
     static constexpr long CLOCK_SET_AFTER = 1700000000;
 
@@ -128,6 +133,7 @@ public:
     void peek();                            // light the timer for 5 s
     void shh();                             // the pet hushes for 2 s
     void petted();                          // outside study, the pet is pleased for 2 s
+    FeedResult feed();                      // spend a gear on the pet (the Playground's Feed)
     void setStudyLength(int study_min);     // resets the break to 1/5 of it
     void setBreakLength(int break_min);
     void setPet(int body, int face, int finish);
@@ -140,6 +146,8 @@ public:
     void setInviteTarget(const Friend *f);
     const InviteTarget &inviteTarget() const { return invite_target; }
     const SessionResult &lastResult() const { return last_result; }
+    int lastGearsEarned() const { return last_gears_earned; } // by the last scored session
+    const PetCare &care() const { return pet_state; }
     const SessionLog &log() const { return session_log; }
     // Today as a SessionLog day number, or 0 while the clock isn't set
     int today() const;
@@ -153,6 +161,9 @@ private:
     void applyCommand(const UiCommand &cmd);
     void refreshMood();
     void recordSession(const SessionResult &result, bool completed);
+    // Re-check hunger; tell the laptop if it changed, or always when `event` is given
+    void refreshCare(const char *event = nullptr, int earned = 0);
+    long knownTime() const;                 // Unix seconds, 0 while the clock isn't set
     void noticeResult(const SessionResult &result, bool early);
     SavedState currentState();
     void scheduleSave();
@@ -164,6 +175,8 @@ private:
     InviteTarget invite_target = {};
     SessionResult last_result = {};
     SessionLog session_log = {};
+    PetCare pet_state;
+    int last_gears_earned = 0;
     QueueHandle_t commands = nullptr;
     QueueHandle_t friend_updates = nullptr;    // length 1, overwritten
     lv_timer_t *peek_timer = nullptr;

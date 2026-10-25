@@ -3,7 +3,7 @@
 For the dashboard ([Frontend-Pomo](https://github.com/StudyWithPomo/Frontend-Pomo)) to recreate what the device does with the pet, with every number, string and drawing it uses. The device is the source of truth for the rules in Part 2: the dashboard should show what the device reports rather than run its own copy.
 
 - **Part 1, Milestone D: play.** Petting, the Playground, the dance and feeding. Built and pushed (`8c93a56`).
-- **Part 2, Milestone E: gears and hunger.** Planned, not built yet. Studying earns gears; feeding spends them; the pet gets hungry over time.
+- **Part 2, Milestone E: gears and hunger.** Built; checked in the PC preview and rules tests, not yet flashed. Studying earns gears; feeding spends them; the pet gets hungry over time.
 - **Log.** Dated entries, newest first. Every change to anything in this file gets one.
 
 Coordinates are on the pet's 16×16 grid (the same grid as `pet.js`): `[x, y, w, h]`, top-left origin. Palette slots (`body`, `line`, `cheek`, `shade`, `hi`, `rivet`, `mono`) are `pet.js`'s.
@@ -124,7 +124,7 @@ XX...XX            [0,3,2,1] [5,3,2,1]                .X...X.              [1,3,
 
 ---
 
-## Part 2: Milestone E, gears and hunger (planned)
+## Part 2: Milestone E, gears and hunger (built, not yet flashed)
 
 ### The idea
 
@@ -154,6 +154,8 @@ Guardrails (decided with the user, 2026-10-25):
 | `HUNGRY_AFTER` | **24 h** after feeding |
 | `STUFFED_AFTER` | **3** feeds within 30 min; the 4th is refused |
 
+Hunger is re-checked every second, so a level change shows (and is reported) within a second.
+
 #### Earning
 
 - A session **completed** (its study timer ran to zero) earns 1 gear, whatever the focus score. A completed 4th session earns 3.
@@ -166,11 +168,11 @@ Guardrails (decided with the user, 2026-10-25):
 
 | Situation | Result | Gear spent? |
 |---|---|---|
-| 0 gears | **empty**: no toss. "Out of gears! Finish a session to earn some." | no |
-| 3 feeds already in the last 30 min | **stuffed**: no toss. "I'm stuffed! Save it for later." | no |
+| 0 gears | **empty**: no toss, the low `SHH` hum. "Out of gears! Finish a session to earn some." | no |
+| 3 feeds already in the last 30 min | **stuffed**: no toss, the `SHH` hum. "I'm stuffed! Save it for later." | no |
 | otherwise | **fed**: the gear flies, "last fed" becomes now | yes |
 
-The 30-minute "stuffed" window starts at the first of those feeds and resets when it ends.
+The 30-minute "stuffed" window starts at the first of those feeds and resets when it ends. It runs on the time since power-on and isn't saved, so a restart also resets it.
 
 #### Hunger
 
@@ -181,7 +183,9 @@ From the time since the pet was last fed (`now − fed_at`):
 | `full` | under 30 min | `love` | 3 hearts | a heart | 3 turns, hearts |
 | `content` | 30 min to 12 h | `happy` | 3 hearts | a heart | 3 turns, hearts |
 | `peckish` | 12 h to 24 h | `happy` | 2 hearts | a heart | 3 turns, hearts |
-| `hungry` | 24 h or more | **`hungry`** (new) | 1 heart | a purr, no heart | **2 turns**, no hearts |
+| `hungry` | 24 h or more | **`hungry`** (new) | 1 heart | a purr, no heart | **2 turns**, no hearts: "Wheee... huff...", then "Phew... a gear would help." |
+
+Which hearts show: with 3, all three start positions; with 2, the left and right ones; with 1, the middle one.
 
 Every gesture always gets the hop or squish and its sound.
 
@@ -196,10 +200,11 @@ Every gesture always gets the hop or squish and its sound.
 2. **Break or long rest:** `love` ("wound up"). (Unchanged.)
 3. **Idle or Ready:**
    1. petted in the last 2 s: `love`
-   2. Playground only: dancing or just caught a gear: `love`; asleep: `sleep`
-   3. `full`: `love`
-   4. `hungry`: `hungry`
-   5. otherwise: `happy`
+   2. `full`: `love`
+   3. `hungry`: `hungry`
+   4. otherwise: `happy`
+
+   The Playground puts two of its own on top: dancing or just caught a gear (1.5 s) is `love`; asleep is `sleep`. Petting wakes it, so a sleeping pet that's petted shows `love`.
 
 ### The new face: `hungry`
 
@@ -223,13 +228,13 @@ Its word on Status: **"Hungry"**. (The others: Happy, Delighted, Focused, Annoye
 
 ("Mochi" is the pet's name.)
 
-Intermission's score line gains the gears: "88% focused, +66 XP, **+1 gear**. Mochi is most proud." After the 4th session: "**+3 gears**". If the bar was already full: "**gears full**".
+Intermission's score line gains the gears: "88% focused, +66 XP, **+1 gear**.\nMochi is most proud." After the 4th session: "**+3 gears**". If the bar was already full: "**gears full**". With the penalty: "40% focused, −10 XP, +1 gear.\nMochi is disappointed, but you keep your level."
 
 ### On screen
 
 - **Gears bar** at the top right of **Home** (replacing the XP number, which stays on Status and Peek) and of the **Playground**: a small gear icon, then **12 pips**, filled for each gear held. Pips are 5×8 px with 1 px gaps; filled in brass `#C9A15A`, empty as a dark outline `#6B5233`.
-- **Feed a gear** when the bar is empty: the button looks dimmed, and a press says "Out of gears! ..." (no toss).
-- **Status** gets a "Fed" row: "just now", "3 h ago", "yesterday", or "never" / "–" while the clock is unknown.
+- **Feed a gear** when the bar is empty: the button looks dimmed (outline `#6B5233`, text `#B8A27C`), and a press says "Out of gears! ..." (no toss).
+- **Status** gets a **"Last fed"** row: "just now" (under 2 min), "N min ago", "N h ago", "yesterday" (24–48 h), "N days ago", "never", or "–" while the clock is unknown.
 
 ### Saved on the device (NVS)
 
@@ -237,19 +242,20 @@ Intermission's score line gains the gears: "88% focused, +66 XP, **+1 gear**. Mo
 |---|---|
 | `gears` | gears held, 0–12 |
 | `fed_at` | when last fed (Unix seconds), 0 = never |
-| `feeds_n` | feeds in the current 30-min window |
-| `feeds_from` | when that window started |
+
+(The stuffed window and "fed this boot" aren't saved: see Feeding.)
 
 ### Protocol additions (device → laptop)
 
 Additions only: nothing existing changes.
 
 - **`state`** (sent every second during a session or break): adds `"gears": 4` and `"hunger": "content"`.
-- **`end`**: adds `"gears": 1` (earned by this session, after the cap) and `"gears_total": 5`.
-- **New `pet` message**, sent on hello, whenever the gears or the hunger level change, and on every feed attempt:
+- **`end`**: unchanged. What a session earned comes in the `pet` message right after it (`"event": "earned"`).
+- **New `pet` message**, sent right after `hello`, whenever the hunger level changes, after every scored session that ran to the end, and on every feed attempt:
 
 ```json
 {"t": "pet", "gears": 4, "max_gears": 12, "hunger": "content", "fed_at": 1792790040, "event": "fed"}
+{"t": "pet", "gears": 5, "max_gears": 12, "hunger": "content", "fed_at": 1792790040, "event": "earned", "earned": 1}
 ```
 
 | Field | |
@@ -258,6 +264,7 @@ Additions only: nothing existing changes.
 | `hunger` | `full`, `content`, `peckish` or `hungry` |
 | `fed_at` | Unix seconds, or 0 if never or unknown |
 | `event` | why it was sent: `hello`, `earned`, `fed`, `empty`, `stuffed`, `hunger` (the level changed) |
+| `earned` | only with `earned`: gears this session added after the cap (0 when the bar was full) |
 
 The laptop doesn't send anything new. To feed from the dashboard later we'd add a `feed` command; not planned yet.
 
@@ -272,22 +279,34 @@ The laptop doesn't send anything new. To feed from the dashboard later we'd add 
 7. Clock moves before `fed_at`: `fed_at` resets to now.
 8. A study session while `hungry`: the session faces win; the idle face goes back to `hungry` when it ends.
 
-### Build plan (device)
+### Where it lives (device)
 
-1. `app/pet_care.*`: the rules above, pure C++, with `test/pet_care_test.cpp`.
-2. `storage`: the four NVS keys.
-3. `AppState`: hold the care state, earn gears on `STUDY_ENDED`, `feed()`, a `hunger` subject re-checked every minute, the new mood order.
-4. Pet art: the `hungry` face and its name.
-5. UI: the gears bar (Home, Playground), Feed costing a gear, hunger-aware reactions and words (petting helper, Playground, Boot, Intermission, Status).
-6. Link: `state`/`end` fields and the `pet` message.
-7. Preview shots of every hunger level, the soak test, an ESP32 syntax check; then the user flashes and tests.
+| | |
+|---|---|
+| Rules | `main/app/pet_care.*`, tests in `test/pet_care_test.cpp` (all the cases above) |
+| Saved | `main/app/storage.*`: `gears`, `fed_at` |
+| State | `AppState`: `gears` and `hunger` subjects, `feed()`, gears earned in `recordSession()`, hunger in `update()` every second, the mood order in `refreshMood()` |
+| Art | `main/ui/pet/pet_data.h`: `pet_hungry_line_r`, and the gear sprite `pet_gear_a_r` / `pet_gear_b_r` |
+| UI | `theme::gears_bar()` (Home, Playground), hunger-aware `pet_hearts()` / `pet_stroke()`, the Playground, Boot, Intermission, Status |
+| Protocol | `main/comms/link.*`: `link_send_pet()`, the `pet` message, `gears` and `hunger` in `state` |
 
 ---
 
 ## Log
 
+### 2026-10-25: Milestone E built (not yet flashed)
+- Everything in Part 2, as specified, with these details settled while building (Part 2 now says them):
+  - The stuffed window and "fed this boot" run on the time since power-on and aren't saved, so only `gears` and `fed_at` are saved.
+  - `end` didn't change: a `pet` message with `"event": "earned"` and `"earned": N` follows each completed session instead (the device decides the gears after it sends `end`).
+  - The `pet` message also goes out right after `hello`.
+  - Empty and stuffed feeds play the low `SHH` hum.
+  - A hungry dance says "Wheee... huff..." then "Phew... a gear would help."
+  - Status calls the row "Last fed".
+  - Hunger is re-checked every second.
+- Checked: the rules tests (every case above), the PC preview of each hunger level, a 100-round soak test (flat memory), and an ESP32 compile check.
+
 ### 2026-10-25: fix, the dance tune was cut off
-- The dance started the tune and then the hearts, whose coo (same priority) replaced it after one note. Now the hearts go first and the tune replaces their coo. Not committed yet.
+- The dance started the tune and then the hearts, whose coo (same priority) replaced it after one note. Now the hearts go first and the tune replaces their coo. Committed with Milestone E.
 
 ### 2026-10-25: Milestone E planned
 - Gears and hunger designed with the user (Part 2). Not built yet.

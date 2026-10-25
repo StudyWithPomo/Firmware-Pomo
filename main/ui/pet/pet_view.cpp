@@ -185,6 +185,6 @@ void pet_view_set_key(lv_obj_t *view, int frame)
 
 const char *pet_mood_name(int mood)
 {
-    static const char *const NAMES[PET_MOOD_COUNT] = {"Happy", "Delighted", "Focused", "Annoyed", "Hushed", "Sleepy", "Lonely"};
+    static const char *const NAMES[PET_MOOD_COUNT] = {"Happy", "Delighted", "Focused", "Annoyed", "Hushed", "Sleepy", "Lonely", "Hungry"};
     return mood >= 0 && mood < PET_MOOD_COUNT ? NAMES[mood] : "";
 }

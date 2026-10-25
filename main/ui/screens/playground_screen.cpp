@@ -2,8 +2,11 @@
 //   Wind:  each knob detent (or a tap on Wind, held to repeat) turns the key on top of the pet's
 //          head one click and fills the gauge. Every body gets a key here. Left alone, it runs
 //          down. Fully wound, the pet dances for 3 s (spins, hops, hearts, a tune), then unwinds.
-//   Feed:  a knob press (or Feed a gear) tosses a gear; the pet catches it with a crunch.
+//          A hungry pet dances less: 2 turns, no hearts.
+//   Feed:  a knob press (or Feed a gear) spends one of the gears studying earned and tosses it;
+//          the pet catches it with a crunch. No gears, or stuffed (3 in 30 min): it says so.
 //   Pet:   tap or stroke it, as everywhere else.
+// What it says when idle follows how fed it is. Spec: docs/PET_PLAY_AND_CARE.md
 // Nobody playing for 20 s and it nods off; any play wakes it.
 // The knob only winds and feeds here (it has no stops to move between): hold to go back.
 
@@ -21,6 +24,7 @@ using namespace theme;
 static const int WIND_FULL = 12;                // clicks to a full wind
 static const uint32_t DANCE_MS = 3000;
 static const int DANCE_TURNS = 3;
+static const int HUNGRY_DANCE_TURNS = 2;
 static const uint32_t RUN_DOWN_AFTER_MS = 3000; // left alone this long, it starts unwinding
 static const uint32_t RUN_DOWN_STEP_MS = 600;   // then loses a click this often
 static const uint32_t SLEEP_AFTER_MS = 20000;
@@ -34,6 +38,8 @@ static struct {
     lv_obj_t *says;     // the speech bubble's label
     lv_obj_t *fill;     // the wind gauge
     lv_obj_t *feed_btn;
+    int dance_turns;
+    bool feeding_hungry; // the gear in flight is going to a hungry pet
     lv_obj_t *gear;     // in flight, on the top layer
     lv_timer_t *timer;
     int wind;           // 0..WIND_FULL
@@ -49,12 +55,25 @@ static struct {
 
 static void say(const char *text) { if (ui.says) lv_label_set_text(ui.says, text); }
 
+static Hunger hunger() { return (Hunger)lv_subject_get_int(&AppState::instance().hunger); }
+
+// What it says with nothing going on, by how fed it is
+static const char *idle_line()
+{
+    switch (hunger()) {
+        case Hunger::FULL: return "I'm stuffed! Wind me up instead?";
+        case Hunger::PECKISH: return "A gear would be lovely...";
+        case Hunger::HUNGRY: return "My tummy's ticking... got a gear?";
+        default: return "Wind my key, or toss me a gear!";
+    }
+}
+
 static void refresh_mood()
 {
     if (!ui.pet) return;
-    const bool petted = lv_subject_get_int(&AppState::instance().pet_mood) == PET_MOOD_LOVE;
-    PetMood mood = PET_MOOD_HAPPY;
-    if (ui.dancing || petted || lv_tick_get() < ui.delighted_until_ms) mood = PET_MOOD_LOVE;
+    // AppState's idle mood: petted or full -> love, hungry -> hungry, otherwise happy
+    PetMood mood = (PetMood)lv_subject_get_int(&AppState::instance().pet_mood);
+    if (ui.dancing || lv_tick_get() < ui.delighted_until_ms) mood = PET_MOOD_LOVE;
     else if (ui.asleep) mood = PET_MOOD_SLEEP;
     pet_view_set_mood(ui.pet, mood);
 }
@@ -87,7 +106,7 @@ static void dance_exec(void *var, int32_t t)
 {
     if (!ui.pet) return;
     // Spinning: squeezed to nothing and mirrored every half turn
-    const int angle = (int)(t * 360 * DANCE_TURNS / (int32_t)DANCE_MS) % 360;
+    const int angle = (int)(t * 360 * ui.dance_turns / (int32_t)DANCE_MS) % 360;
     const int32_t cos_v = lv_trigo_cos((int16_t)angle);
     pet_view_set_squash(ui.pet, (int)(LV_ABS(cos_v) * 1000 / LV_TRIGO_SIN_MAX), cos_v < 0);
     // A hop on every half turn
@@ -108,8 +127,8 @@ static void dance_done(lv_anim_t *a)
     pet_view_set_squash(ui.pet, 1000, false);
     pet_view_set_key(ui.pet, 0);
     lv_obj_set_style_translate_y(ui.port, 0, 0);
-    pet_hearts(ui.port);
-    say("Again! Again!");
+    if (hunger() != Hunger::HUNGRY) pet_hearts(ui.port);
+    say(hunger() == Hunger::HUNGRY ? "Phew... a gear would help." : "Again! Again!");
     played();
     delight();
 }
@@ -117,9 +136,11 @@ static void dance_done(lv_anim_t *a)
 static void dance()
 {
     ui.dancing = true;
-    say("Wheee!");
-    buzzer_play(BUZZ_DANCE);
-    pet_hearts(ui.port);
+    const bool hungry = hunger() == Hunger::HUNGRY;
+    ui.dance_turns = hungry ? HUNGRY_DANCE_TURNS : DANCE_TURNS;
+    say(hungry ? "Wheee... huff..." : "Wheee!");
+    if (!hungry) pet_hearts(ui.port); // plays its coo...
+    buzzer_play(BUZZ_DANCE);          // ...which the tune then replaces (same priority)
     refresh_mood();
 
     lv_anim_t a;
@@ -154,24 +175,19 @@ static void run_down()
     ui.key_turns = (ui.key_turns + PET_KEY_FRAMES - 1) % PET_KEY_FRAMES; // the key turns back
     pet_view_set_key(ui.pet, ui.key_turns);
     show_wind();
-    if (ui.wind == 0) say("Wind my key, or toss me a gear!");
+    if (ui.wind == 0) say(idle_line());
 }
 
 // ---- Gears ----
 
-static const int GEAR_GRID = 7, GEAR_SCALE = 3;
-// Two frames, teeth square and teeth diagonal, so it seems to tumble
-static const PetRect GEAR_A[] = { {3, 0, 1, 1}, {1, 1, 5, 1}, {1, 2, 2, 1}, {4, 2, 2, 1}, {0, 3, 2, 1}, {5, 3, 2, 1},
-                                  {1, 4, 2, 1}, {4, 4, 2, 1}, {1, 5, 5, 1}, {3, 6, 1, 1} };
-static const PetRect GEAR_B[] = { {1, 0, 1, 1}, {5, 0, 1, 1}, {2, 1, 3, 1}, {1, 2, 2, 1}, {4, 2, 2, 1}, {1, 3, 1, 1},
-                                  {5, 3, 1, 1}, {1, 4, 2, 1}, {4, 4, 2, 1}, {2, 5, 3, 1}, {1, 6, 1, 1}, {5, 6, 1, 1} };
+static const int GEAR_GRID = PET_GEAR_GRID, GEAR_SCALE = 3;
 
 static void gear_draw(lv_event_t *e)
 {
     lv_obj_t *gear = lv_event_get_current_target_obj(e);
     const bool frame_b = (uintptr_t)lv_obj_get_user_data(gear) & 1;
-    const PetRect *rects = frame_b ? GEAR_B : GEAR_A;
-    const int count = frame_b ? PET_N(GEAR_B) : PET_N(GEAR_A);
+    const PetRect *rects = frame_b ? pet_gear_b_r : pet_gear_a_r;
+    const int count = frame_b ? PET_N(pet_gear_b_r) : PET_N(pet_gear_a_r);
 
     lv_draw_rect_dsc_t dsc;
     lv_draw_rect_dsc_init(&dsc);
@@ -210,7 +226,7 @@ static void gear_caught(lv_anim_t *a)
     ui.gear = nullptr;
     buzzer_play(BUZZ_CRUNCH);
     pet_squish(ui.pet);
-    say("Crunchy! Thank you.");
+    say(ui.feeding_hungry ? "Oh, that's better!" : "Crunchy! Thank you.");
     played();
     delight();
 }
@@ -219,6 +235,19 @@ static void feed()
 {
     if (ui.gear || ui.dancing || !ui.pet) return; // one gear at a time
     played();
+    ui.feeding_hungry = hunger() == Hunger::HUNGRY;
+    switch (AppState::instance().feed()) {
+        case FeedResult::EMPTY:
+            buzzer_play(BUZZ_SHH);
+            say("Out of gears! Finish a session to earn some.");
+            return;
+        case FeedResult::STUFFED:
+            buzzer_play(BUZZ_SHH);
+            say("I'm stuffed! Save it for later.");
+            return;
+        default:
+            break;
+    }
     buzzer_play(BUZZ_TOSS);
     say("Ooh, a gear!");
 
@@ -260,10 +289,12 @@ static void on_wind_btn(lv_event_t *e) { wind_click(); }
 static void on_feed_btn(lv_event_t *e) { feed(); }
 static bool can_pet() { return !ui.dancing; }
 
-static void update_petted(lv_observer_t *observer, lv_subject_t *subject)
+static void update_mood(lv_observer_t *observer, lv_subject_t *subject) { refresh_mood(); }
+
+// Petting counts as play (pettable() does the hearts; this wakes it and holds off the run-down)
+static void on_petting(lv_event_t *e)
 {
-    if (lv_subject_get_int(subject) == PET_MOOD_LOVE) played();
-    refresh_mood();
+    if (!ui.dancing) played();
 }
 
 static void tick(lv_timer_t *t)
@@ -278,6 +309,16 @@ static void tick(lv_timer_t *t)
         say("Zzz...");
     }
     refresh_mood();
+}
+
+// No gears: Feed looks spent (dim outline and text; an opacity would need a layer buffer)
+static void update_feed_btn(lv_observer_t *observer, lv_subject_t *subject)
+{
+    lv_obj_t *btn = lv_observer_get_target_obj(observer);
+    const bool any = lv_subject_get_int(subject) > 0;
+    lv_obj_set_style_border_color(btn, c(any ? BRASS : TUBE_RIM), 0);
+    lv_obj_t *text = lv_obj_get_child(lv_obj_get_child(btn, 0), 1);
+    lv_obj_set_style_text_color(text, c(any ? BRASS : MUTED), 0);
 }
 
 static void on_delete(lv_event_t *e)
@@ -309,7 +350,8 @@ void screen_playground(lv_obj_t *parent, lv_group_t *group)
     lv_obj_t *content = frame(parent);
     lv_obj_add_event_cb(content, on_delete, LV_EVENT_DELETE, nullptr);
 
-    header(content, "Playground");
+    Header top = header(content, "Playground");
+    gears_bar(top.row);
 
     // Middle: the pet with its key, and what it says over the wind gauge
     lv_obj_t *middle = row(content, LV_FLEX_ALIGN_START, 12);
@@ -318,11 +360,12 @@ void screen_playground(lv_obj_t *parent, lv_group_t *group)
     ui.pet = pet_view_create(ui.port, 96, PET_MOOD_HAPPY);
     pet_view_set_key(ui.pet, 0);
     pettable(ui.pet, ui.port, can_pet);
-    lv_subject_add_observer_obj(&AppState::instance().pet_mood, update_petted, ui.pet, nullptr);
+    lv_obj_add_event_cb(ui.pet, on_petting, LV_EVENT_PRESSED, nullptr);
+    lv_subject_add_observer_obj(&AppState::instance().pet_mood, update_mood, ui.pet, nullptr);
 
     lv_obj_t *side = column(middle, 8);
     lv_obj_set_flex_grow(side, 1);
-    lv_obj_t *bubble_box = bubble(side, "Wind my key, or toss me a gear!", 150);
+    lv_obj_t *bubble_box = bubble(side, idle_line(), 150);
     ui.says = lv_obj_get_child(bubble_box, 0);
     label(side, "Wound up", &font_fell_12, MUTED);
     lv_obj_t *rail = box(side);
@@ -344,6 +387,7 @@ void screen_playground(lv_obj_t *parent, lv_group_t *group)
     lv_obj_add_event_cb(wind_btn, on_wind_btn, LV_EVENT_LONG_PRESSED_REPEAT, nullptr);
     ui.feed_btn = touch_button(buttons, "Feed a gear", 130);
     lv_obj_add_event_cb(ui.feed_btn, on_feed_btn, LV_EVENT_CLICKED, nullptr);
+    lv_subject_add_observer_obj(&AppState::instance().gears, update_feed_btn, ui.feed_btn, nullptr);
 
     // The knob's one stop, always turning: detents wind, a press feeds, a hold goes back
     lv_group_add_obj(group, content);

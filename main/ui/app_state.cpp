@@ -15,6 +15,7 @@
 #include <ui/theme.hpp>
 
 #include "esp_log.h"
+#include "esp_timer.h"
 
 static const char *TAG = "state";
 
@@ -75,6 +76,8 @@ AppState::AppState() {
     lv_subject_init_int(&session_paused, 0);
     lv_subject_init_int(&link_connected, 0);
     lv_subject_init_int(&log_version, 0);
+    lv_subject_init_int(&gears, 0);
+    lv_subject_init_int(&hunger, (int)Hunger::CONTENT);
 }
 
 struct FriendUpdate {
@@ -118,11 +121,15 @@ void AppState::loadSaved() {
     Session::instance().setXp(s.xp < 0 ? 0 : s.xp);
     lv_subject_set_int(&xp, s.xp < 0 ? 0 : s.xp);
     session_log = s.log;
+    pet_state.gears = clamp_int(s.gears, 0, pet_care::MAX_GEARS);
+    pet_state.fed_at = s.fed_at > 0 ? s.fed_at : 0;
+    lv_subject_set_int(&gears, pet_state.gears);
+    refreshCare("hello");
     lv_subject_set_int(&log_version, lv_subject_get_int(&log_version) + 1);
 
     // From now on, any change to a saved value is written shortly after
     persisting = true;
-    lv_subject_t *saved[] = {&pet_name, &pet_body, &pet_face, &pet_finish, &user_name,
+    lv_subject_t *saved[] = {&gears, &pet_name, &pet_body, &pet_face, &pet_finish, &user_name,
                              &study_min, &break_min, &always_show_timer, &xp};
     for (lv_subject_t *subject : saved) {
         lv_subject_add_observer(subject, [](lv_observer_t *, lv_subject_t *) { instance().scheduleSave(); }, nullptr);
@@ -142,6 +149,8 @@ SavedState AppState::currentState() {
     s.break_min = lv_subject_get_int(&break_min);
     s.always_show_timer = lv_subject_get_int(&always_show_timer) != 0;
     s.log = session_log;
+    s.gears = pet_state.gears;
+    s.fed_at = (int)pet_state.fed_at;
     return s;
 }
 
@@ -209,6 +218,37 @@ void AppState::update() {
         current_time_cache = current_time;
         lv_subject_set_pointer(&time_subject, &current_time_cache);
     }
+    // A new pet's hunger clock starts once the time is known (and restarts if it jumped back)
+    const long fed_at = pet_state.fed_at;
+    pet_care::clock_known(&pet_state, knownTime());
+    if (pet_state.fed_at != fed_at) scheduleSave();
+    refreshCare();
+}
+
+long AppState::knownTime() const {
+    return current_time_cache >= CLOCK_SET_AFTER ? current_time_cache : 0;
+}
+
+static long uptime_s() { return (long)(esp_timer_get_time() / 1000000); }
+
+void AppState::refreshCare(const char *event, int earned) {
+    const Hunger now = pet_care::hunger(pet_state, knownTime(), uptime_s());
+    const bool changed = (int)now != lv_subject_get_int(&hunger);
+    if (changed) {
+        lv_subject_set_int(&hunger, (int)now);
+        refreshMood();
+    }
+    if (changed || event) link_send_pet(pet_state.gears, now, pet_state.fed_at, event ? event : "hunger", earned);
+}
+
+FeedResult AppState::feed() {
+    const long fed_at = pet_state.fed_at;
+    const FeedResult result = pet_care::feed(&pet_state, knownTime(), uptime_s());
+    lv_subject_set_int(&gears, pet_state.gears);
+    if (pet_state.fed_at != fed_at) scheduleSave();
+    refreshCare(result == FeedResult::FED ? "fed" : result == FeedResult::EMPTY ? "empty" : "stuffed");
+    ESP_LOGI(TAG, "Feed: %s, %d gears left", result == FeedResult::FED ? "fed" : "refused", pet_state.gears);
+    return result;
 }
 
 // ---- Session queues -> subjects (runs in the LVGL task) ----
@@ -328,6 +368,9 @@ void AppState::noticeResult(const SessionResult &r, bool early) {
 
 void AppState::recordSession(const SessionResult &result, bool completed) {
     logSession(&session_log, result, completed, today());
+    last_gears_earned = pet_care::earn(&pet_state, result, completed);
+    lv_subject_set_int(&gears, pet_state.gears);
+    if (completed) refreshCare("earned", last_gears_earned);
     lv_subject_set_int(&log_version, lv_subject_get_int(&log_version) + 1);
     ESP_LOGI(TAG, "Log: %d sessions, %d sets, %d focused min, %d today", session_log.sessions,
              session_log.sets, session_log.focused_min, sessionsToday());
@@ -353,8 +396,10 @@ void AppState::refreshMood() {
         case Phase::LONG_REST:
             mood = PET_MOOD_LOVE; // "wound up"
             break;
-        default:
+        default: // idle or Ready: petting, then how fed it is
             if (petted_active) mood = PET_MOOD_LOVE;
+            else if (lv_subject_get_int(&hunger) == (int)Hunger::FULL) mood = PET_MOOD_LOVE;
+            else if (lv_subject_get_int(&hunger) == (int)Hunger::HUNGRY) mood = PET_MOOD_HUNGRY;
             break;
     }
     lv_subject_set_int(&pet_mood, mood);

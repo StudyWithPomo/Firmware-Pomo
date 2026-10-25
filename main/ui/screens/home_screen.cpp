@@ -18,11 +18,6 @@ static void update_title(lv_observer_t *observer, lv_subject_t *subject)
                           (int)lv_subject_get_int(&state.level));
 }
 
-static void update_xp(lv_observer_t *observer, lv_subject_t *subject)
-{
-    lv_label_set_text_fmt(lv_observer_get_target_obj(observer), "%d XP", (int)lv_subject_get_int(subject));
-}
-
 static void update_laptop(lv_observer_t *observer, lv_subject_t *subject)
 {
     lv_obj_t *lamp = lv_observer_get_target_obj(observer);
@@ -102,7 +97,7 @@ void screen_home(lv_obj_t *parent, lv_group_t *group)
     AppState &state = AppState::instance();
     lv_obj_t *content = frame(parent);
 
-    // Top: "Mochi · Lv 3" and XP
+    // Top: "Mochi · Lv 3", the laptop lamp and the gears bar
     lv_obj_t *top = row(content);
     lv_obj_set_width(top, LV_PCT(100));
     lv_obj_t *title = label(top, "", &font_fell_14);
@@ -117,8 +112,7 @@ void screen_home(lv_obj_t *parent, lv_group_t *group)
     lv_obj_set_style_bg_color(dot, c(VERDIGRIS_HI), 0);
     label(laptop, "Laptop", &font_caslon_12, MUTED);
     lv_subject_add_observer_obj(&state.link_connected, update_laptop, laptop, nullptr);
-    lv_obj_t *xp = label(right, "", &font_plex_12);
-    lv_subject_add_observer_obj(&state.xp, update_xp, xp, nullptr);
+    gears_bar(right);
 
     // Middle: porthole + Start
     lv_obj_t *middle = row(content, LV_FLEX_ALIGN_START, 14);

@@ -53,8 +53,15 @@ static void update_greeting(lv_observer_t *observer, lv_subject_t *subject)
         else hello = "Good evening";
     }
     const char *user = lv_subject_get_string(&state.user_name);
-    lv_label_set_text_fmt(text, "%s, %s. %s missed you.", hello, user[0] ? user : "there",
-                          lv_subject_get_string(&state.pet_name));
+    const char *pet = lv_subject_get_string(&state.pet_name);
+    char how[64];
+    switch ((Hunger)lv_subject_get_int(&state.hunger)) {
+        case Hunger::FULL: snprintf(how, sizeof(how), "%s is full and happy.", pet); break;
+        case Hunger::PECKISH: snprintf(how, sizeof(how), "%s could go for a gear.", pet); break;
+        case Hunger::HUNGRY: snprintf(how, sizeof(how), "%s's tummy is ticking. Got a gear?", pet); break;
+        default: snprintf(how, sizeof(how), "%s missed you.", pet); break;
+    }
+    lv_label_set_text_fmt(text, "%s, %s. %s", hello, user[0] ? user : "there", how);
 }
 
 static void on_yes(lv_event_t *e) { Navigator::instance().navigate(ScreenID::STUDY); }
@@ -79,6 +86,7 @@ void screen_boot(lv_obj_t *parent, lv_group_t *group)
     lv_subject_add_observer_obj(&state.user_name, update_greeting, greeting, nullptr);
     lv_subject_add_observer_obj(&state.pet_name, update_greeting, greeting, nullptr);
     lv_subject_add_observer_obj(&state.time_subject, update_greeting, greeting, nullptr);
+    lv_subject_add_observer_obj(&state.hunger, update_greeting, greeting, nullptr);
 
     lv_obj_t *bottom = column(content, 7);
     lv_obj_set_width(bottom, LV_PCT(100));

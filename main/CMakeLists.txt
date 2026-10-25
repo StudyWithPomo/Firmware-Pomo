@@ -14,6 +14,7 @@ idf_component_register(
     "system/health.cpp"
 
     "app/session_core.cpp"
+    "app/pet_care.cpp"
     "app/circle_core.cpp"
     "app/session.cpp"
     "app/storage.cpp"

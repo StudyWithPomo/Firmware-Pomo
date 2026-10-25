@@ -140,7 +140,7 @@ static void pet_sheet(bool moods)
 
     static const char *const finishes[] = {"brass", "copper", "pewter", "verdigris"};
     static const char *const bodies[] = {"bot", "cat", "dog"};
-    static const char *const mood_names[] = {"happy", "love", "focus", "annoyed", "shh", "sleep", "sad"};
+    static const char *const mood_names[] = {"happy", "love", "focus", "annoyed", "shh", "sleep", "sad", "hungry"};
 
     const int n = moods ? PET_MOOD_COUNT : PET_BODY_COUNT * PET_FINISH_COUNT;
     for (int i = 0; i < n; i++) {
@@ -505,6 +505,39 @@ int main(int argc, char **argv)
     state.endSet();
     pump(200);
 
+    // Pet care: the sessions above earned gears; time makes the pet peckish, then hungry
+    state.update(); // the clock is known: the hunger clock starts now
+    nav_reset(ScreenID::HOME);
+    shot("01_home_gears", "01 Home, the gears bar after two completed sessions");
+    g_sim_epoch += 13 * 3600;
+    state.update();
+    nav_reset(ScreenID::BOOT);
+    shot("00_boot_peckish", "00 Boot, 13 h unfed: peckish");
+    g_sim_epoch += 12 * 3600;
+    state.update();
+    nav_reset(ScreenID::BOOT);
+    shot("00_boot_hungry", "00 Boot, 25 h unfed: hungry");
+    nav_reset(ScreenID::HOME);
+    shot("01_home_hungry", "01 Home, hungry");
+    nav_go(ScreenID::PLAYGROUND);
+    shot("06_playground_hungry", "Playground, hungry");
+    click_focused(); // feed a gear
+    pump(800);
+    state.update();
+    shot("06_playground_fed", "Playground, a hungry pet fed");
+    click_focused(); // and another
+    pump(800);
+    state.update();
+    click_focused(); // none left
+    pump(100);
+    shot("06_playground_empty", "Playground, out of gears");
+    nav_reset(ScreenID::HOME);
+    shot("01_home_full", "01 Home, just fed: full");
+    nav_go(ScreenID::STATUS);
+    shot("06_status_fed", "Pet status, last fed");
+    Navigator::instance().back();
+    pump(50);
+
     Session::instance().setXp(7200); // Lv 15: goggles, bow tie, top hat
     nav_reset(ScreenID::HOME);
     shot("01_home_lv15", "01 Home at Lv 15 (all accessories)");
@@ -512,7 +545,7 @@ int main(int argc, char **argv)
     pet_sheet(false);
     shot("pets_finishes", "Pet: 3 bodies x 4 finishes");
     pet_sheet(true);
-    shot("pets_moods", "Pet: the 7 moods");
+    shot("pets_moods", "Pet: the 8 moods");
 
     fclose(s_index);
     if (const char *rounds = getenv("POMO_SOAK")) soak(atoi(rounds));

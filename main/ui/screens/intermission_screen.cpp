@@ -52,17 +52,27 @@ static void update_buttons(lv_observer_t *observer, lv_subject_t *subject)
     lv_label_set_text(lv_obj_get_child(lv_obj_get_child(ui.end_set, 0), 1), long_rest ? "Finish set" : "End set");
 }
 
+// "+1 gear", "+3 gears", or "gears full" when the bar had no room
+static void gears_text(char *buf, size_t size)
+{
+    const int earned = AppState::instance().lastGearsEarned();
+    if (earned > 0) snprintf(buf, size, "+%d gear%s", earned, earned == 1 ? "" : "s");
+    else snprintf(buf, size, "gears full");
+}
+
 // The time card's verdict in the pet's words
 static void result_text(char *buf, size_t size)
 {
     AppState &state = AppState::instance();
     const SessionResult &r = state.lastResult();
     const char *pet = lv_subject_get_string(&state.pet_name);
+    char gears[24]; // "+N gears" or "gears full", with room for any int
+    gears_text(gears, sizeof(gears));
     if (r.penalty)
-        snprintf(buf, size, "%d%% focused, " UI_MINUS "%d XP.\n%s is disappointed, but you keep your level.",
-                 r.pct, -r.xp_delta, pet);
+        snprintf(buf, size, "%d%% focused, " UI_MINUS "%d XP, %s.\n%s is disappointed, but you keep your level.",
+                 r.pct, -r.xp_delta, gears, pet);
     else
-        snprintf(buf, size, "%d%% focused, +%d XP.\n%s is %s.", r.pct, r.xp_delta, pet,
+        snprintf(buf, size, "%d%% focused, +%d XP, %s.\n%s is %s.", r.pct, r.xp_delta, gears, pet,
                  r.pct >= 80 ? "most proud" : "content");
 }
 
@@ -91,7 +101,7 @@ void screen_intermission(lv_obj_t *parent, lv_group_t *group)
     ui.porthole = porthole(middle, 98);
     lv_obj_t *pet = pet_view_create(ui.porthole, 64, PET_MOOD_LOVE);
     pettable(pet, ui.porthole);
-    char verdict[96];
+    char verdict[128];
     result_text(verdict, sizeof(verdict));
     bubble(middle, verdict, 140);
 

@@ -3,6 +3,8 @@
 #include <stdlib.h>
 #include <string.h>
 
+#include <atomic>
+
 #include "cJSON.h"
 #include "driver/uart.h"
 #include "esp_log.h"
@@ -96,12 +98,41 @@ static const char *drift_kind_name(DriftKind k)
     }
 }
 
+static void send_pet(const char *event, int earned);
+
 void link_send_hello()
 {
     cJSON *o = cJSON_CreateObject();
     cJSON_AddStringToObject(o, "t", "hello");
     cJSON_AddStringToObject(o, "fw", POMO_FW_VERSION);
     send_json(o);
+    send_pet("hello", 0); // so a laptop that just connected knows the gears and hunger
+}
+
+// The pet's care as AppState last reported it (written by the LVGL task, read here)
+static std::atomic<int> s_gears{0};
+static std::atomic<int> s_hunger{(int)Hunger::CONTENT};
+static std::atomic<long> s_fed_at{0};
+
+static void send_pet(const char *event, int earned)
+{
+    cJSON *o = cJSON_CreateObject();
+    cJSON_AddStringToObject(o, "t", "pet");
+    cJSON_AddNumberToObject(o, "gears", s_gears.load());
+    cJSON_AddNumberToObject(o, "max_gears", pet_care::MAX_GEARS);
+    cJSON_AddStringToObject(o, "hunger", pet_care::hunger_name((Hunger)s_hunger.load()));
+    cJSON_AddNumberToObject(o, "fed_at", (double)s_fed_at.load());
+    cJSON_AddStringToObject(o, "event", event);
+    if (earned > 0) cJSON_AddNumberToObject(o, "earned", earned);
+    send_json(o);
+}
+
+void link_send_pet(int gears, Hunger hunger, long fed_at, const char *event, int earned)
+{
+    s_gears = gears;
+    s_hunger = (int)hunger;
+    s_fed_at = fed_at;
+    send_pet(event, earned);
 }
 
 static void send_state(const SessionSnapshot &s)
@@ -121,6 +152,8 @@ static void send_state(const SessionSnapshot &s)
     cJSON_AddNumberToObject(o, "level", s.level);
     if (s.phase == Phase::STUDY) cJSON_AddNumberToObject(o, "earned", s.earned);
     if (s.paused) cJSON_AddBoolToObject(o, "paused", true);
+    cJSON_AddNumberToObject(o, "gears", s_gears.load());
+    cJSON_AddStringToObject(o, "hunger", pet_care::hunger_name((Hunger)s_hunger.load()));
     send_json(o);
 }
 

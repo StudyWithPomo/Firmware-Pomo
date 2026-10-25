@@ -56,6 +56,22 @@ static void update_unlock(lv_observer_t *observer, lv_subject_t *subject)
     else lv_label_set_text(label, "All unlocked");
 }
 
+// "just now", "5 min ago", "3 h ago", "yesterday", "4 days ago"; "never"; "–" without the time
+static void update_fed(lv_observer_t *observer, lv_subject_t *subject)
+{
+    lv_obj_t *label = lv_observer_get_target_obj(observer);
+    const long now = *(long *)lv_subject_get_pointer(&AppState::instance().time_subject);
+    const long fed_at = AppState::instance().care().fed_at;
+    if (now < AppState::CLOCK_SET_AFTER) { lv_label_set_text(label, "–"); return; }
+    if (fed_at <= 0) { lv_label_set_text(label, "never"); return; }
+    const long ago = now - fed_at;
+    if (ago < 2 * 60) lv_label_set_text(label, "just now");
+    else if (ago < 3600) lv_label_set_text_fmt(label, "%ld min ago", ago / 60);
+    else if (ago < 24 * 3600) lv_label_set_text_fmt(label, "%ld h ago", ago / 3600);
+    else if (ago < 48 * 3600) lv_label_set_text(label, "yesterday");
+    else lv_label_set_text_fmt(label, "%ld days ago", ago / (24 * 3600));
+}
+
 static void update_mood(lv_observer_t *observer, lv_subject_t *subject)
 {
     pet_view_set_mood(lv_observer_get_target_obj(observer), (PetMood)lv_subject_get_int(subject));
@@ -113,6 +129,9 @@ void screen_status(lv_obj_t *parent, lv_group_t *group)
     lv_subject_add_observer_obj(&state.pet_mood, update_mood_name, fact(facts, "Mood"), nullptr);
     lv_subject_add_observer_obj(&state.log_version, update_sessions, fact(facts, "Sessions completed"), nullptr);
     lv_subject_add_observer_obj(&state.level, update_unlock, fact(facts, "Next unlock"), nullptr);
+    lv_obj_t *fed = fact(facts, "Last fed");
+    lv_subject_add_observer_obj(&state.time_subject, update_fed, fed, nullptr);
+    lv_subject_add_observer_obj(&state.gears, update_fed, fed, nullptr);
 
     lv_group_add_obj(group, top.back);
 }

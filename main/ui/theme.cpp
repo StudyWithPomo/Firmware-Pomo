@@ -425,7 +425,14 @@ void pet_hearts(lv_obj_t *porthole)
 
     static const int OFFSET_X[3] = {-22, 2, 18};
     static const int OFFSET_Y[3] = {6, 0, 10};
-    for (int i = 0; i < 3; i++) float_heart(cx + OFFSET_X[i], from.y1 + OFFSET_Y[i], i * 120);
+    // A hungry pet is quieter: fewer hearts, but always at least one
+    const Hunger hunger = (Hunger)lv_subject_get_int(&AppState::instance().hunger);
+    static const int PICK_3[] = {0, 1, 2}, PICK_2[] = {0, 2}, PICK_1[] = {1};
+    const int *pick = PICK_3;
+    int count = 3;
+    if (hunger == Hunger::PECKISH) { pick = PICK_2; count = 2; }
+    if (hunger == Hunger::HUNGRY) { pick = PICK_1; count = 1; }
+    for (int i = 0; i < count; i++) float_heart(cx + OFFSET_X[pick[i]], from.y1 + OFFSET_Y[pick[i]], i * 120);
 
     if (!lv_anim_get(porthole, hop_exec)) {
         lv_anim_t a;
@@ -495,10 +502,66 @@ void pet_stroke(lv_obj_t *pet, lv_obj_t *porthole)
     AppState::instance().petted();
     buzzer_play(BUZZ_PURR);
     pet_squish(pet);
+    if (lv_subject_get_int(&AppState::instance().hunger) == (int)Hunger::HUNGRY) return; // a purr, no heart
     lv_area_t from;
     lv_obj_get_coords(porthole, &from);
     const int32_t cx = (from.x1 + from.x2) / 2;
     float_heart(cx + (int32_t)lv_rand(0, 40) - 20, from.y1 + (int32_t)lv_rand(0, 10), 0);
+}
+
+// ---- Gears bar ----
+
+static const int GEAR_ICON_SCALE = 2;
+static const int PIP_W = 5, PIP_H = 8;
+
+static void gear_icon_draw(lv_event_t *e)
+{
+    lv_obj_t *icon = lv_event_get_current_target_obj(e);
+    lv_draw_rect_dsc_t dsc;
+    lv_draw_rect_dsc_init(&dsc);
+    dsc.bg_color = c(BRASS_HI);
+    dsc.bg_opa = LV_OPA_COVER;
+    lv_area_t coords;
+    lv_obj_get_coords(icon, &coords);
+    for (const PetRect &r : pet_gear_a_r) {
+        lv_area_t a;
+        a.x1 = coords.x1 + r.x * GEAR_ICON_SCALE;
+        a.y1 = coords.y1 + r.y * GEAR_ICON_SCALE;
+        a.x2 = a.x1 + r.w * GEAR_ICON_SCALE - 1;
+        a.y2 = a.y1 + r.h * GEAR_ICON_SCALE - 1;
+        lv_draw_rect(lv_event_get_layer(e), &dsc, &a);
+    }
+}
+
+static void update_pips(lv_observer_t *observer, lv_subject_t *subject)
+{
+    lv_obj_t *pips = lv_observer_get_target_obj(observer);
+    const int held = lv_subject_get_int(subject);
+    const uint32_t n = lv_obj_get_child_count(pips);
+    for (uint32_t i = 0; i < n; i++) {
+        lv_obj_t *pip = lv_obj_get_child(pips, i);
+        const bool full = (int)i < held;
+        lv_obj_set_style_bg_opa(pip, full ? LV_OPA_COVER : LV_OPA_TRANSP, 0);
+        lv_obj_set_style_border_width(pip, full ? 0 : 1, 0);
+    }
+}
+
+lv_obj_t *gears_bar(lv_obj_t *parent)
+{
+    lv_obj_t *bar = row(parent, LV_FLEX_ALIGN_START, 4);
+    lv_obj_t *icon = box(bar);
+    lv_obj_set_size(icon, PET_GEAR_GRID * GEAR_ICON_SCALE, PET_GEAR_GRID * GEAR_ICON_SCALE);
+    lv_obj_add_event_cb(icon, gear_icon_draw, LV_EVENT_DRAW_MAIN, nullptr);
+
+    lv_obj_t *pips = row(bar, LV_FLEX_ALIGN_START, 1);
+    for (int i = 0; i < pet_care::MAX_GEARS; i++) {
+        lv_obj_t *pip = box(pips);
+        lv_obj_set_size(pip, PIP_W, PIP_H);
+        lv_obj_set_style_bg_color(pip, c(BRASS), 0);
+        lv_obj_set_style_border_color(pip, c(TUBE_RIM), 0);
+    }
+    lv_subject_add_observer_obj(&AppState::instance().gears, update_pips, pips, nullptr);
+    return bar;
 }
 
 // ---- Petting: one touch at a time, so one stroke in progress ----

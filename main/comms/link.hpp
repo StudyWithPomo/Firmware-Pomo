@@ -25,8 +25,15 @@
 //   {"t":"end","pct":90,"xp":44,"level":3,"total_xp":1044,"focused_min":22,"elapsed_min":25,
 //    "penalty":false,"early":false}
 //   {"t":"circle","friends":[{"name":"Ava","focused":true,"pct":0}]}
+//   {"t":"pet","gears":4,"max_gears":12,"hunger":"content","fed_at":1792790040,"event":"fed"}
+//                                        on hello and whenever the gears or hunger change;
+//                                        event hello/earned/fed/empty/stuffed/hunger, plus
+//                                        "earned":N with earned. state also carries gears and
+//                                        hunger. Spec: docs/PET_PLAY_AND_CARE.md
 // Raw knob and touch input is never sent.
 #include <stddef.h>
+
+#include <app/pet_care.hpp>
 
 // Start the USB serial link task (after Session::init and AppState::attach)
 void link_init();
@@ -37,6 +44,9 @@ void link_send(const char *json);
 // Convenience senders (any task)
 void link_send_hello();    // at boot, and whenever a laptop connects over Bluetooth
 void link_send_circle();   // from AppState's friends; call from the LVGL task
+// The pet's care changed (or a feed was tried): remembered for hello and state, and sent as
+// a pet message. `earned` is sent only when > 0. Any task.
+void link_send_pet(int gears, Hunger hunger, long fed_at, const char *event, int earned = 0);
 
 // Collects bytes into lines for one transport; complete lines go to the shared handler
 class LineAssembler {

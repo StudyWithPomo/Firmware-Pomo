@@ -127,7 +127,10 @@ int SystemAPI::setCurrentTime(long epochSeconds) const
 
 // ---- Laptop link (not simulated) ----
 
+#include "comms/link.hpp"
+
 void link_send_circle() {}
+void link_send_pet(int, Hunger, long, const char *, int) {}
 
 // ---- Study circle (the preview sets friends directly) ----
 

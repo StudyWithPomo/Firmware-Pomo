@@ -119,12 +119,18 @@ lv_obj_t *list_row(lv_obj_t *parent, lv_group_t *group, const char *text,
 // Decoration only: there's no hearts stat, and petting earns nothing.
 void pettable(lv_obj_t *pet, lv_obj_t *porthole, bool (*can_pet)() = nullptr);
 
-// `porthole` hops and three little pixel hearts float up out of it and fade. The hearts live
-// on the top layer and delete themselves, so they outlast a screen change.
+// `porthole` hops and little pixel hearts float up out of it and fade: three, or fewer the
+// hungrier the pet is (2 peckish, 1 hungry). The hearts live on the top layer and delete
+// themselves, so they outlast a screen change.
 void pet_hearts(lv_obj_t *porthole);
 
-// One stroke: the pet squishes wider for a moment, one heart rises and it purrs
+// One stroke: the pet squishes wider for a moment, one heart rises (not when hungry) and it
+// purrs
 void pet_stroke(lv_obj_t *pet, lv_obj_t *porthole);
+
+// The gears bar: a gear icon and one pip per gear the pet can hold, filled for each held.
+// Follows AppState's gears.
+lv_obj_t *gears_bar(lv_obj_t *parent);
 
 // The pet squishes wider and back, for a stroke or a gear caught (pet_view_set_squash)
 void pet_squish(lv_obj_t *pet);

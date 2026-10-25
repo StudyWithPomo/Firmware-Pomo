@@ -13,10 +13,13 @@ struct SavedState {
     int study_min, break_min;
     bool always_show_timer;
     SessionLog log;
+    // Pet care (app/pet_care.hpp): gears held and when last fed (Unix seconds, 0 = never)
+    int gears;
+    int fed_at;
 };
 
 // Defaults for anything missing (a fresh device): Lv 1, Mochi the brass bot, 25 / 5, an
-// empty log
+// empty log, no gears, never fed
 void storage_defaults(SavedState *out);
 
 // Read everything saved, falling back to defaults per key. NVS must be initialized.

@@ -21,6 +21,8 @@ Specs, in order of authority:
   - `sdkconfig` is gitignored and generated from `sdkconfig.defaults`. Delete `sdkconfig` after changing the defaults.
 - **Rules tests** for the session/XP logic (`main/app/session_core.cpp`, no IDF needed). MSYS2 g++ is at `/c/msys64/mingw64/bin`:
   `g++ -std=c++17 -Wall -I main test/session_test.cpp main/app/session_core.cpp -o session_test && ./session_test`
+  - Pet care (gears, hunger): `g++ -std=c++17 -Wall -I main test/pet_care_test.cpp main/app/pet_care.cpp main/app/session_core.cpp main/utilities.cpp -o pet_care_test && ./pet_care_test`
+- **`docs/PET_PLAY_AND_CARE.md` is for the frontend dev**, who recreates the pet's play and care on the dashboard. Keep it exact (numbers, strings, art, sounds, protocol) and add a dated log entry for every change to petting, the Playground, gears or hunger.
 - **Test timing on the device:** the "Test" chip in the Study screen's header makes every study session, break and long rest 30 s (scoring minutes are 10 s, a drift minute is 3 s of drift). Focus and Intermission say "· Test". Test sessions earn XP and count in the session log (sessions, sets, today) but add no focused minutes. It isn't saved, so a restart turns it off. Rules: `SessionCore::TEST_*`.
 - **PC screen preview:** `tools/preview/build.sh`. Needs one `idf.py build` first.
   - It compiles the real UI and session code against LVGL, using the device's own LVGL config, and renders every screen to `tools/preview/out/*.png`. It also prints LVGL memory per screen.
@@ -83,6 +85,7 @@ Display and touch share one SPI bus: `display.c` initializes it, `touch.c` joins
 - `app/`:
   - `session_core.*`: pure C++ rules, unit tested. A break running out goes to `Phase::READY` (event `BREAK_OVER`) and waits; `endBreak()` starts the next session, `endSet()` finishes. The long rest running out still ends the set.
   - `session.*`: a 1 s `esp_timer`, a mutex, a snapshot queue and event queues (`subscribe()` gives each listener its own).
+  - `pet_care.*`: pure C++ rules, unit tested: gears (1 per completed session, +2 for the set, max 12), feeding (costs a gear; refused when empty or after 3 in 30 min), hunger from time since fed (full < 30 min, content < 12 h, peckish < 24 h, hungry). Hunger only moves once the laptop has sent the time. Spec: `docs/PET_PLAY_AND_CARE.md`.
   - `storage.*`: NVS namespace `pomo`; only changed keys are written. Includes the session log (`SessionLog` in `session_core`: sessions, sets, focused minutes, today).
 - `comms/`:
   - `link.*`: JSON lines over UART0, per-transport `LineAssembler`, cJSON. Every line from the laptop calls `Session::laptopHeard()`; the dashboard's `ping` (every 2 s) arms the heartbeat. After 6 s of silence the laptop's drift is dropped and a study session pauses (`state.paused`, Focus shows "Laptop Lost" with **Go on alone**) until the laptop is heard again. A dashboard that never pings never pauses anything.
@@ -136,6 +139,8 @@ Cube OS was imported into this repo, then rebuilt milestone by milestone. The us
 | `frontend-parity` (merged to `main`) | Cross-referenced with Pomo-App `main` (`09fdd80`): heartbeat pause, pet.js's `sad` mood, session score on Intermission ("88% focused, +66 XP. Mochi is most proud."), level-up and ended-early notices (`theme::notice`), "Laptop" lamp on Home, Roman session numbers ("Session II of IV"), drift wording per kind ("Gone Idle", camera labels as the dashboard's), "+N XP so far" on Peek. Preview, soak and IDF-flag compile only; **not flashed**. Focus now peaks at ~50 KB of LVGL memory (was ~45). |
 | Buzzer | Haptic-style clicks and timer chimes (`hal/buzzer.*`). Then louder clicks and longer, louder alarms, tuned by the user. |
 | `f9154b1` | XtraCube: CFG B (touch flip) now applies to board 2 too. |
+| `8c93a56` D | Playground (wind the key, the dance, feeding gears, sleep), petting everywhere (tap and stroke). Not confirmed on hardware. |
+| E | Gears and hunger: studying earns gears, feeding spends them, the pet goes full → content → peckish → hungry. Gears bar on Home and the Playground, the `hungry` face, the `pet` message. Not yet flashed. |
 
 Other notes:
 - A screenshot gallery of every screen was published as a private artifact, "Pomo Screen Preview".
