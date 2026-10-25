@@ -74,7 +74,7 @@ void screen_boot(lv_obj_t *parent, lv_group_t *group)
     lv_obj_t *middle = row(content, LV_FLEX_ALIGN_CENTER, 12);
     lv_obj_set_width(middle, LV_PCT(100));
     lv_obj_t *port = porthole(middle, 84);
-    pet_view_create(port, 64, PET_MOOD_HAPPY);
+    pettable(pet_view_create(port, 64, PET_MOOD_HAPPY), port);
     lv_obj_t *greeting = bubble(middle, "", 140);
     lv_subject_add_observer_obj(&state.user_name, update_greeting, greeting, nullptr);
     lv_subject_add_observer_obj(&state.pet_name, update_greeting, greeting, nullptr);

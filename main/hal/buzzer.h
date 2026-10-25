@@ -46,6 +46,21 @@ extern "C" {
                                             BZ_REST(35), BZ(1750, 35, 80)) \
     /* tapping it during focus: one low, quiet "shh" */ \
     X(SHH,           BUZZ_PRIO_PET,      1, BZ(880, 20, 70)) \
+    /* stroking it: a low, soft trill, like a purr */ \
+    X(PURR,          BUZZ_PRIO_PET,      1, BZ(520, 18, 35), BZ_REST(10), BZ(600, 18, 35), \
+                                            BZ_REST(10), BZ(520, 18, 45)) \
+    /* the Playground: one click of the wind-up key, a ratchet click-clack */ \
+    X(WIND,          BUZZ_PRIO_FEEDBACK, 1, BZ(3400, 25, 6), BZ_REST(14), BZ(2900, 20, 5)) \
+    /* fully wound: a little music-box tune while it dances */ \
+    X(DANCE,         BUZZ_PRIO_PET,      1, BZ(2093, 30, 110), BZ(2637, 30, 110), BZ(3136, 30, 110), \
+                                            BZ(2637, 30, 110), BZ(2349, 30, 110), BZ(2793, 30, 110), \
+                                            BZ(3520, 30, 110), BZ(2793, 30, 110), BZ(3136, 30, 160), \
+                                            BZ_REST(40), BZ(4186, 30, 220)) \
+    /* a gear tossed: a quick rising swish */ \
+    X(TOSS,          BUZZ_PRIO_FEEDBACK, 1, BZ(1800, 12, 20), BZ(2300, 12, 20), BZ(2900, 12, 25)) \
+    /* ...and caught: a crunchy chomp-chomp */ \
+    X(CRUNCH,        BUZZ_PRIO_PET,      1, BZ(420, 40, 25), BZ_REST(20), BZ(360, 40, 25), \
+                                            BZ_REST(60), BZ(440, 35, 25), BZ_REST(20), BZ(380, 35, 30)) \
     \
     /* ---- Notices ---- */ \
     /* start-up chirp */ \

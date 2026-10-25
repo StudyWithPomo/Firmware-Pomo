@@ -66,7 +66,6 @@ static void result_text(char *buf, size_t size)
                  r.pct >= 80 ? "most proud" : "content");
 }
 
-static void on_pet_tap(lv_event_t *e) { pet_hearts(ui.porthole); }
 static void on_start_now(lv_event_t *e) { AppState::instance().startNextSession(); }
 static void on_end_set(lv_event_t *e) { AppState::instance().endSet(); }
 static void on_delete(lv_event_t *e) { ui = {}; }
@@ -91,9 +90,7 @@ void screen_intermission(lv_obj_t *parent, lv_group_t *group)
     lv_obj_set_width(middle, LV_PCT(100));
     ui.porthole = porthole(middle, 98);
     lv_obj_t *pet = pet_view_create(ui.porthole, 64, PET_MOOD_LOVE);
-    lv_obj_add_flag(pet, LV_OBJ_FLAG_CLICKABLE);
-    lv_obj_set_ext_click_area(pet, 17); // the whole porthole
-    lv_obj_add_event_cb(pet, on_pet_tap, LV_EVENT_PRESSED, nullptr);
+    pettable(pet, ui.porthole);
     char verdict[96];
     result_text(verdict, sizeof(verdict));
     bubble(middle, verdict, 140);

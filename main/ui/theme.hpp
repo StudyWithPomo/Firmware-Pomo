@@ -111,10 +111,23 @@ lv_obj_t *list_row(lv_obj_t *parent, lv_group_t *group, const char *text,
                    const char *detail = nullptr, const lv_font_t *detail_font = nullptr,
                    uint32_t detail_color = BRASS);
 
-// Petting: `porthole` hops and three little pixel hearts float up out of it and fade. The
-// hearts live on the top layer and delete themselves, so they outlast a screen change.
-// Decoration only: there's no hearts stat.
+// Make a pet pettable, the same on every screen it appears on (not Focus, where a tap hushes
+// it): `pet` is a pet_view sitting in `porthole`, and its hit area grows to the porthole.
+//   tap:    the pet is pleased (AppState::petted), hearts and a hop (pet_hearts)
+//   stroke: dragging across it adds a squish, a heart and a purr every ~30 px (pet_stroke)
+// `can_pet`, if given, is asked first (the Playground says no while the pet dances).
+// Decoration only: there's no hearts stat, and petting earns nothing.
+void pettable(lv_obj_t *pet, lv_obj_t *porthole, bool (*can_pet)() = nullptr);
+
+// `porthole` hops and three little pixel hearts float up out of it and fade. The hearts live
+// on the top layer and delete themselves, so they outlast a screen change.
 void pet_hearts(lv_obj_t *porthole);
+
+// One stroke: the pet squishes wider for a moment, one heart rises and it purrs
+void pet_stroke(lv_obj_t *pet, lv_obj_t *porthole);
+
+// The pet squishes wider and back, for a stroke or a gear caught (pet_view_set_squash)
+void pet_squish(lv_obj_t *pet);
 
 // A notice card at the top of the screen for `ms` ("Mochi reached Level 5!" / "Goggles
 // unlocked."). It lives on the top layer, so it stays over a screen change; a tap dismisses it

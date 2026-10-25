@@ -11,8 +11,6 @@
 
 using namespace theme;
 
-static lv_obj_t *s_porthole;
-
 static void update_title(lv_observer_t *observer, lv_subject_t *subject)
 {
     AppState &state = AppState::instance();
@@ -76,18 +74,11 @@ static void update_near(lv_observer_t *observer, lv_subject_t *subject)
 
 static void on_start(lv_event_t *e) { AppState::instance().startSession(); }
 
-static void on_pet_tap(lv_event_t *e)
-{
-    AppState::instance().petted();
-    pet_hearts(s_porthole);
-}
-
 static void go(lv_event_t *e)
 {
     Navigator::instance().navigate((ScreenID)(intptr_t)lv_event_get_user_data(e));
 }
 
-static void on_delete(lv_event_t *e) { s_porthole = nullptr; }
 
 // Outlined tile: name over a detail line. Returns the detail label.
 static lv_obj_t *tile(lv_obj_t *parent, lv_group_t *group, const char *name, ScreenID to)
@@ -110,7 +101,6 @@ void screen_home(lv_obj_t *parent, lv_group_t *group)
 {
     AppState &state = AppState::instance();
     lv_obj_t *content = frame(parent);
-    lv_obj_add_event_cb(content, on_delete, LV_EVENT_DELETE, nullptr);
 
     // Top: "Mochi · Lv 3" and XP
     lv_obj_t *top = row(content);
@@ -134,11 +124,9 @@ void screen_home(lv_obj_t *parent, lv_group_t *group)
     lv_obj_t *middle = row(content, LV_FLEX_ALIGN_START, 14);
     lv_obj_set_width(middle, LV_PCT(100));
     lv_obj_set_style_pad_all(middle, 4, 0); // room for the focus outline: rows clip their children
-    s_porthole = porthole(middle, 94);
-    lv_obj_t *pet = pet_view_create(s_porthole, 64, PET_MOOD_HAPPY);
-    lv_obj_add_flag(pet, LV_OBJ_FLAG_CLICKABLE);
-    lv_obj_set_ext_click_area(pet, 15); // the whole porthole
-    lv_obj_add_event_cb(pet, on_pet_tap, LV_EVENT_PRESSED, nullptr);
+    lv_obj_t *port = porthole(middle, 94);
+    lv_obj_t *pet = pet_view_create(port, 64, PET_MOOD_HAPPY);
+    pettable(pet, port);
     lv_subject_add_observer_obj(&state.pet_mood, update_mood, pet, nullptr);
 
     lv_obj_t *start = column(middle, 2);

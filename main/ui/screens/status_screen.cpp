@@ -87,6 +87,7 @@ void screen_status(lv_obj_t *parent, lv_group_t *group)
     lv_obj_set_width(middle, LV_PCT(100));
     lv_obj_t *port = porthole(middle, 70, 2);
     lv_obj_t *pet = pet_view_create(port, 48, PET_MOOD_HAPPY);
+    pettable(pet, port);
     lv_subject_add_observer_obj(&state.pet_mood, update_mood, pet, nullptr);
 
     lv_obj_t *progress = column(middle, 5);

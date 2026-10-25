@@ -60,6 +60,13 @@ static const PetRect pet_key_shade_r[] = { {5, 0, 2, 2}, {9, 0, 2, 2} };
 static const PetRect pet_key_line_r[] = { {7, 0, 2, 3} };
 static const PetPaint pet_key_p[] = { PET_PAINT(PET_SLOT_SHADE, pet_key_shade_r), PET_PAINT(PET_SLOT_LINE, pet_key_line_r) };
 
+// The key turning, seen from the front: full bow (the frame above), three-quarter, edge-on.
+// Not in pet.js: the Playground winds it, on every body.
+static const PetRect pet_key34_shade_r[] = { {6, 0, 1, 2}, {9, 0, 1, 2} };
+static const PetPaint pet_key34_p[] = { PET_PAINT(PET_SLOT_SHADE, pet_key34_shade_r), PET_PAINT(PET_SLOT_LINE, pet_key_line_r) };
+static const PetPaint pet_key_edge_p[] = { PET_PAINT(PET_SLOT_LINE, pet_key_line_r) };
+#define PET_KEY_FRAMES 4    // full, 3/4, edge, 3/4
+
 // ---- Cat ----
 static const PetRect pet_cat_line_r[] = {
     {3, 1, 1, 4}, {4, 2, 1, 1}, {12, 1, 1, 4}, {11, 2, 1, 1}, {0, 9, 2, 1}, {0, 11, 2, 1},
@@ -130,6 +137,8 @@ static const PetPaint pet_monocle_p[] = { PET_PAINT(PET_SLOT_MONO, pet_monocle_m
 static const PetLayer pet_layer_base = PET_LAYER(pet_base_p);
 static const PetLayer pet_layer_metal = PET_LAYER(pet_metal_p);
 static const PetLayer pet_layer_body[PET_BODY_COUNT] = { PET_LAYER(pet_key_p), PET_LAYER(pet_cat_p), PET_LAYER(pet_dog_p) };
+static const PetLayer pet_layer_key[PET_KEY_FRAMES] = {
+    PET_LAYER(pet_key_p), PET_LAYER(pet_key34_p), PET_LAYER(pet_key_edge_p), PET_LAYER(pet_key34_p) };
 static const PetLayer pet_layer_mood[PET_MOOD_COUNT] = {
     PET_LAYER(pet_mood_happy_p), PET_LAYER(pet_mood_love_p), PET_LAYER(pet_mood_focus_p),
     PET_LAYER(pet_mood_annoyed_p), PET_LAYER(pet_mood_shh_p), PET_LAYER(pet_mood_sleep_p),

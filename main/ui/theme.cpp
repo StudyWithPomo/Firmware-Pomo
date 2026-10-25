@@ -6,6 +6,7 @@
 #include <ui/app_state.hpp>
 #include <ui/navigator.hpp>
 #include <ui/pet/pet_data.h>
+#include <ui/pet/pet_view.hpp>
 #include <hal/buzzer.h>
 
 namespace theme {
@@ -382,7 +383,7 @@ static void heart_exec(void *var, int32_t v)
 {
     lv_obj_t *obj = (lv_obj_t *)var;
     lv_obj_set_style_translate_y(obj, -HEART_RISE * v / 1000, 0);
-    const int opa = v < 500 ? LV_OPA_COVER : LV_OPA_COVER * (1000 - v) / 500;
+    const int opa = v < 500 ? (int)LV_OPA_COVER : LV_OPA_COVER * (1000 - v) / 500;
     lv_obj_set_user_data(obj, (void *)(uintptr_t)opa);
     lv_obj_invalidate(obj);
 }
@@ -390,6 +391,29 @@ static void heart_exec(void *var, int32_t v)
 static void heart_done(lv_anim_t *a) { lv_obj_delete_async((lv_obj_t *)a->var); }
 
 static void hop_exec(void *obj, int32_t v) { lv_obj_set_style_translate_y((lv_obj_t *)obj, v, 0); }
+
+// One heart rising from (x, y) on the top layer, after `delay_ms`
+static void float_heart(int32_t x, int32_t y, uint32_t delay_ms)
+{
+    lv_obj_t *heart = lv_obj_create(lv_layer_top());
+    lv_obj_remove_style_all(heart);
+    lv_obj_remove_flag(heart, LV_OBJ_FLAG_CLICKABLE);
+    lv_obj_set_size(heart, HEART_W * HEART_SCALE, HEART_H * HEART_SCALE);
+    lv_obj_set_pos(heart, x - HEART_W, y);
+    lv_obj_set_user_data(heart, (void *)(uintptr_t)LV_OPA_COVER);
+    lv_obj_add_event_cb(heart, heart_draw, LV_EVENT_DRAW_MAIN, nullptr);
+
+    lv_anim_t a;
+    lv_anim_init(&a);
+    lv_anim_set_var(&a, heart);
+    lv_anim_set_exec_cb(&a, heart_exec);
+    lv_anim_set_values(&a, 0, 1000);
+    lv_anim_set_duration(&a, HEART_MS);
+    lv_anim_set_delay(&a, delay_ms);
+    lv_anim_set_path_cb(&a, lv_anim_path_ease_out);
+    lv_anim_set_completed_cb(&a, heart_done);
+    lv_anim_start(&a);
+}
 
 void pet_hearts(lv_obj_t *porthole)
 {
@@ -401,26 +425,7 @@ void pet_hearts(lv_obj_t *porthole)
 
     static const int OFFSET_X[3] = {-22, 2, 18};
     static const int OFFSET_Y[3] = {6, 0, 10};
-    for (int i = 0; i < 3; i++) {
-        lv_obj_t *heart = lv_obj_create(lv_layer_top());
-        lv_obj_remove_style_all(heart);
-        lv_obj_remove_flag(heart, LV_OBJ_FLAG_CLICKABLE);
-        lv_obj_set_size(heart, HEART_W * HEART_SCALE, HEART_H * HEART_SCALE);
-        lv_obj_set_pos(heart, cx + OFFSET_X[i] - HEART_W, from.y1 + OFFSET_Y[i]);
-        lv_obj_set_user_data(heart, (void *)(uintptr_t)LV_OPA_COVER);
-        lv_obj_add_event_cb(heart, heart_draw, LV_EVENT_DRAW_MAIN, nullptr);
-
-        lv_anim_t a;
-        lv_anim_init(&a);
-        lv_anim_set_var(&a, heart);
-        lv_anim_set_exec_cb(&a, heart_exec);
-        lv_anim_set_values(&a, 0, 1000);
-        lv_anim_set_duration(&a, HEART_MS);
-        lv_anim_set_delay(&a, i * 120);
-        lv_anim_set_path_cb(&a, lv_anim_path_ease_out);
-        lv_anim_set_completed_cb(&a, heart_done);
-        lv_anim_start(&a);
-    }
+    for (int i = 0; i < 3; i++) float_heart(cx + OFFSET_X[i], from.y1 + OFFSET_Y[i], i * 120);
 
     if (!lv_anim_get(porthole, hop_exec)) {
         lv_anim_t a;
@@ -466,6 +471,121 @@ void notice(const char *title, const char *detail, uint32_t ms)
     lv_timer_set_period(s_notice_timer, ms);
     lv_timer_reset(s_notice_timer);
     lv_timer_resume(s_notice_timer);
+}
+
+static void squish_exec(void *pet, int32_t v) { pet_view_set_squash((lv_obj_t *)pet, v, false); }
+
+void pet_squish(lv_obj_t *pet)
+{
+    if (!pet || lv_anim_get(pet, squish_exec)) return;
+    lv_anim_t a;
+    lv_anim_init(&a);
+    lv_anim_set_var(&a, pet);
+    lv_anim_set_exec_cb(&a, squish_exec);
+    lv_anim_set_values(&a, 1000, 1150);
+    lv_anim_set_duration(&a, 110);
+    lv_anim_set_reverse_duration(&a, 170);
+    lv_anim_set_path_cb(&a, lv_anim_path_ease_out);
+    lv_anim_start(&a);
+}
+
+void pet_stroke(lv_obj_t *pet, lv_obj_t *porthole)
+{
+    if (!pet || !porthole) return;
+    AppState::instance().petted();
+    buzzer_play(BUZZ_PURR);
+    pet_squish(pet);
+    lv_area_t from;
+    lv_obj_get_coords(porthole, &from);
+    const int32_t cx = (from.x1 + from.x2) / 2;
+    float_heart(cx + (int32_t)lv_rand(0, 40) - 20, from.y1 + (int32_t)lv_rand(0, 10), 0);
+}
+
+// ---- Petting: one touch at a time, so one stroke in progress ----
+
+static const int32_t STROKE_PX = 30;        // finger travel per stroke
+static const uint32_t STROKE_GAP_MS = 250;  // at most ~4 strokes a second
+
+static struct {
+    lv_obj_t *pet;
+    lv_point_t last;
+    int32_t travel;
+    uint32_t last_stroke_ms;
+} s_stroke;
+
+struct Pettable {
+    lv_obj_t *porthole;
+    bool (*can_pet)();
+};
+
+static bool touch_point(lv_point_t *p)
+{
+    lv_indev_t *indev = lv_indev_active();
+    if (!indev || lv_indev_get_type(indev) != LV_INDEV_TYPE_POINTER) return false;
+    lv_indev_get_point(indev, p);
+    return true;
+}
+
+static void on_pet_event(lv_event_t *e)
+{
+    lv_obj_t *pet = lv_event_get_current_target_obj(e);
+    const Pettable *how = (const Pettable *)lv_event_get_user_data(e);
+    if (how->can_pet && !how->can_pet()) return;
+
+    switch (lv_event_get_code(e)) {
+        case LV_EVENT_PRESSED:
+            AppState::instance().petted();
+            pet_hearts(how->porthole);
+            s_stroke.pet = pet;
+            s_stroke.travel = 0;
+            s_stroke.last_stroke_ms = lv_tick_get();
+            if (!touch_point(&s_stroke.last)) s_stroke.pet = nullptr; // not a finger: no stroke
+            break;
+        case LV_EVENT_PRESSING: {
+            lv_point_t p;
+            if (s_stroke.pet != pet || !touch_point(&p)) break;
+            s_stroke.travel += LV_ABS(p.x - s_stroke.last.x) + LV_ABS(p.y - s_stroke.last.y);
+            s_stroke.last = p;
+            if (s_stroke.travel >= STROKE_PX && lv_tick_elaps(s_stroke.last_stroke_ms) >= STROKE_GAP_MS) {
+                s_stroke.travel = 0;
+                s_stroke.last_stroke_ms = lv_tick_get();
+                pet_stroke(pet, how->porthole);
+            }
+            break;
+        }
+        case LV_EVENT_RELEASED:
+        case LV_EVENT_PRESS_LOST:
+            if (s_stroke.pet == pet) s_stroke.pet = nullptr;
+            break;
+        case LV_EVENT_DELETE:
+            if (s_stroke.pet == pet) s_stroke.pet = nullptr;
+            lv_free((void *)how);
+            break;
+        default:
+            break;
+    }
+}
+
+void pettable(lv_obj_t *pet, lv_obj_t *porthole, bool (*can_pet)())
+{
+    Pettable *how = (Pettable *)lv_malloc(sizeof(Pettable));
+    LV_ASSERT_MALLOC(how);
+    how->porthole = porthole;
+    how->can_pet = can_pet;
+
+    lv_obj_add_flag(pet, LV_OBJ_FLAG_CLICKABLE);
+    // A drag across the pet is a stroke, not a scroll of whatever is behind it
+    lv_obj_remove_flag(pet, LV_OBJ_FLAG_SCROLL_CHAIN);
+    lv_obj_remove_flag(pet, LV_OBJ_FLAG_GESTURE_BUBBLE);
+    // The whole porthole is the target: both are sized when created
+    const int32_t margin = (lv_obj_get_style_width(porthole, LV_PART_MAIN) - lv_obj_get_style_width(pet, LV_PART_MAIN)) / 2;
+    lv_obj_set_ext_click_area(pet, LV_MAX(0, margin));
+    // The touch keeps coming here while the finger moves, even off the pet
+    lv_obj_add_flag(pet, LV_OBJ_FLAG_PRESS_LOCK);
+
+    const lv_event_code_t codes[] = { LV_EVENT_PRESSED, LV_EVENT_PRESSING, LV_EVENT_RELEASED,
+                                      LV_EVENT_PRESS_LOST, LV_EVENT_DELETE };
+    for (lv_event_code_t code : codes) lv_obj_add_event_cb(pet, on_pet_event, code, how);
 }
 
 void ignore_hold() {}

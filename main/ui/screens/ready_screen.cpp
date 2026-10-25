@@ -13,19 +13,11 @@
 
 using namespace theme;
 
-static lv_obj_t *s_porthole;
-
 static void update_question(lv_observer_t *observer, lv_subject_t *subject)
 {
     // While READY, session_index is the session just finished
     lv_label_set_text_fmt(lv_observer_get_target_obj(observer), "Ready for\nsession %s of IV?",
                           roman((int)lv_subject_get_int(subject) + 1));
-}
-
-static void on_pet_tap(lv_event_t *e)
-{
-    AppState::instance().petted();
-    pet_hearts(s_porthole);
 }
 
 static void update_mood(lv_observer_t *observer, lv_subject_t *subject)
@@ -35,23 +27,19 @@ static void update_mood(lv_observer_t *observer, lv_subject_t *subject)
 
 static void on_start_next(lv_event_t *e) { AppState::instance().startNextSession(); }
 static void on_finish(lv_event_t *e) { AppState::instance().endSet(); }
-static void on_delete(lv_event_t *e) { s_porthole = nullptr; }
 
 void screen_ready(lv_obj_t *parent, lv_group_t *group)
 {
     AppState &state = AppState::instance();
     lv_obj_t *content = frame(parent, VERDIGRIS);
-    lv_obj_add_event_cb(content, on_delete, LV_EVENT_DELETE, nullptr);
 
     label(content, "Break's Over", &font_fell_16, VERDIGRIS_HI);
 
     lv_obj_t *middle = row(content, LV_FLEX_ALIGN_CENTER, 14);
     lv_obj_set_width(middle, LV_PCT(100));
-    s_porthole = porthole(middle, 90);
-    lv_obj_t *pet = pet_view_create(s_porthole, 64, PET_MOOD_HAPPY);
-    lv_obj_add_flag(pet, LV_OBJ_FLAG_CLICKABLE);
-    lv_obj_set_ext_click_area(pet, 13);
-    lv_obj_add_event_cb(pet, on_pet_tap, LV_EVENT_PRESSED, nullptr);
+    lv_obj_t *port = porthole(middle, 90);
+    lv_obj_t *pet = pet_view_create(port, 64, PET_MOOD_HAPPY);
+    pettable(pet, port);
     lv_subject_add_observer_obj(&state.pet_mood, update_mood, pet, nullptr);
     lv_obj_t *question = bubble(middle, "", 140);
     lv_subject_add_observer_obj(&state.session_index, update_question, lv_obj_get_child(question, 0), nullptr);

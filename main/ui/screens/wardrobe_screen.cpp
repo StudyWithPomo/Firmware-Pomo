@@ -151,7 +151,7 @@ void screen_wardrobe(lv_obj_t *parent, lv_group_t *group)
     lv_obj_t *middle = row(content, LV_FLEX_ALIGN_START, 6);
     lv_obj_set_width(middle, LV_PCT(100));
     lv_obj_t *port = porthole(middle, 80);
-    pet_view_create(port, 64, PET_MOOD_HAPPY);
+    pettable(pet_view_create(port, 64, PET_MOOD_HAPPY), port);
 
     lv_obj_t *rows = column(middle, 8);
     lv_obj_set_style_pad_all(rows, 5, 0); // room for the knob outline

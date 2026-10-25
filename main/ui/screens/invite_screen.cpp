@@ -89,7 +89,7 @@ void screen_invite(lv_obj_t *parent, lv_group_t *group)
     lv_obj_t *middle = row(content, LV_FLEX_ALIGN_CENTER, 14);
     lv_obj_set_width(middle, LV_PCT(100));
     lv_obj_t *port = porthole(middle, 84);
-    pet_view_create(port, 56, PET_MOOD_HAPPY);
+    pettable(pet_view_create(port, 56, PET_MOOD_HAPPY), port);
     lv_obj_t *bubble_box = bubble(middle, "", 160);
     ui.text = lv_obj_get_child(bubble_box, 0);
 

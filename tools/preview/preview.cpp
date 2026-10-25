@@ -97,7 +97,8 @@ static void click_focused()
 static lv_obj_t *find_pet(lv_obj_t *obj)
 {
     if (lv_obj_has_flag(obj, LV_OBJ_FLAG_CLICKABLE) && lv_obj_get_child_count(obj) == 0 &&
-        lv_obj_get_width(obj) == 64 && lv_obj_get_height(obj) == 64) return obj;
+        lv_obj_get_width(obj) >= 32 && lv_obj_get_width(obj) % 16 == 0 &&
+        lv_obj_get_width(obj) == lv_obj_get_height(obj)) return obj;
     for (uint32_t i = 0; i < lv_obj_get_child_count(obj); i++) {
         lv_obj_t *found = find_pet(lv_obj_get_child(obj, i));
         if (found) return found;
@@ -110,6 +111,14 @@ static void tap_pet()
     lv_obj_t *pet = find_pet(ui_get_content_area());
     if (pet) lv_obj_send_event(pet, LV_EVENT_PRESSED, nullptr);
     else printf("tap_pet: no pet on screen\n");
+}
+
+// A stroke, as a finger dragging across the pet would make (the preview has no pointer)
+static void stroke_pet()
+{
+    lv_obj_t *pet = find_pet(ui_get_content_area());
+    if (pet) theme::pet_stroke(pet, lv_obj_get_parent(pet));
+    else printf("stroke_pet: no pet on screen\n");
 }
 
 static void focus_next() { lv_group_focus_next(Navigator::instance().currentGroup()); pump(50); }
@@ -188,6 +197,13 @@ static void soak(int rounds)
         Navigator::instance().back();
         pump(50);
         nav_go(ScreenID::PLAYGROUND);
+        for (int k = 0; k < 12; k++) send_key(LV_KEY_RIGHT); // a full wind: it dances
+        pump(3200);
+        click_focused(); // a gear
+        pump(900);
+        tap_pet();
+        stroke_pet();
+        pump(1200);
         nav_reset(ScreenID::HOME);
         nav_go(ScreenID::CIRCLE);
 
@@ -279,6 +295,10 @@ int main(int argc, char **argv)
     tap_pet();
     shot("01_home_petted", "01 Home, pet tapped: hearts on their way up");
     pump(2100);
+    stroke_pet();
+    pump(60);
+    shot("01_home_stroked", "01 Home, pet stroked: a squish and one heart");
+    pump(2100);
 
     nav_reset(ScreenID::BOOT);
     click_focused(); // Yes, wind it
@@ -316,7 +336,25 @@ int main(int argc, char **argv)
     pump(50);
 
     nav_go(ScreenID::PLAYGROUND);
-    shot("06_playground", "Playground (placeholder)");
+    shot("06_playground", "Playground");
+    for (int k = 0; k < 7; k++) send_key(LV_KEY_RIGHT);
+    shot("06_playground_winding", "Playground, wound 7 of 12 clicks");
+    for (int k = 0; k < 5; k++) send_key(LV_KEY_RIGHT);
+    pump(700);
+    shot("06_playground_dance", "Playground, fully wound: dancing (mid-spin)");
+    pump(2600);
+    shot("06_playground_after", "Playground, after the dance");
+    pump(1600);
+    click_focused(); // a knob press feeds a gear
+    shot("06_playground_gear", "Playground, a gear in the air");
+    pump(800);
+    shot("06_playground_caught", "Playground, gear caught");
+    pump(21000);
+    shot("06_playground_asleep", "Playground, nobody playing for 20 s");
+    state.setPet(PET_BODY_CAT, PET_FACE_PLAIN, PET_FINISH_VERDIGRIS);
+    pump(50);
+    shot("06_playground_cat", "Playground, a cat gets a key too");
+    state.setPet(PET_BODY_BOT, PET_FACE_PLAIN, PET_FINISH_BRASS);
     Navigator::instance().back();
     pump(50);
 

@@ -78,7 +78,7 @@ Display and touch share one SPI bus: `display.c` initializes it, `touch.c` joins
   - `encoder.c` reads the knob with PCNT x4 quadrature. A short press reaches LVGL as a click on release; a 2 s hold calls a hold callback.
   - `buzzer.*`: every sound is a note table in `BUZZ_PATTERNS` in `buzzer.h` (pitch, volume as PWM duty 0-50, ms, repeats, priority), played by an `esp_timer`. A sound only interrupts one of the same or lower priority (feedback < pet < notice < alarm). `buzzer_play()` is safe from any task.
     - Feedback: `theme::focusable()` ticks on every press (touch or knob), Back has its own, −/+ a lighter one, each knob detent a faint one (in `encoder.c`).
-    - Pet: `pet_hearts()` coos, the Focus "shh" a low hum.
+    - Pet: `pet_hearts()` coos, a stroke purrs, the Focus "shh" a low hum. Playground: a ratchet click per wind, a music-box tune for the dance, a swish and a crunch for a gear.
     - Timer (in `AppState::handleEvent`): session start, loud chime when study ends (bigger at the long rest), alarm-clock beeps when the break runs out, falling chime when the long rest ends the set, soft falling notes when ended by hand. Also a nudge when a drift starts and a ding-dong for a circle invite.
 - `app/`:
   - `session_core.*`: pure C++ rules, unit tested. A break running out goes to `Phase::READY` (event `BREAK_OVER`) and waits; `endBreak()` starts the next session, `endSet()` finishes. The long rest running out still ends the set.
@@ -90,10 +90,10 @@ Display and touch share one SPI bus: `display.c` initializes it, `touch.c` joins
 - `ui/`:
   - `app_state.*`: all `lv_subject`s. It drains the session queues and a `UiCommand` queue in a 50 ms `lv_timer`, navigates on session events, and autosaves 2 s after a change (XP immediately when a session is scored).
   - `navigator.*`: screen registry, a fresh `lv_group` per screen bound to the encoder, `back()` history, per-screen hold handler, screen swaps deferred with `lv_async_call`.
-  - `theme.*`: colour tokens and builders (frame, `header()` with ◂ Back, porthole, bubble, chip, button, list_row, `step_buttons()` −/+, nixie tubes, lamps, `pet_hearts()` petting hearts on the top layer, focus and grabbed styles, `from_knob()`, `ignore_hold`).
-  - `pet/`: the `pet_data.h` port of `pet.js`, and a `pet_view` drawn as scaled rectangles in a draw callback.
+  - `theme.*`: colour tokens and builders (frame, `header()` with ◂ Back, porthole, bubble, chip, button, list_row, `step_buttons()` −/+, nixie tubes, lamps, focus and grabbed styles, `from_knob()`, `ignore_hold`). Petting: `pettable(pet, porthole)` on every pet outside Focus (tap: `pet_hearts()`, hearts and a hop on the top layer; dragging ~30 px: `pet_stroke()`, a squish, one heart, a purr).
+  - `pet/`: the `pet_data.h` port of `pet.js`, and a `pet_view` drawn as scaled rectangles in a draw callback. `pet_view_set_squash()` squeezes or stretches it sideways and mirrors it (the spin and the squish, no image buffer); `pet_view_set_key()` puts a turning wind-up key on any body (Playground).
   - `fonts/`: IM Fell English SC, Libre Caslon, IBM Plex Mono, generated with lv_font_conv, with ▸ ◂ − merged from DejaVu Sans. See `fonts/README.md`.
-  - `screens/`: one file per screen. Boot, Home (Start + Study/Pet/Circle tiles), Study, Focus, Intermission (Start now / End set), Ready ("Ready for session N of 4?"), Circle, Pet hub, Status, Wardrobe, Playground (placeholder).
+  - `screens/`: one file per screen. Boot, Home (Start + Study/Pet/Circle tiles), Study, Focus, Intermission (Start now / End set), Ready ("Ready for session N of 4?"), Circle, Pet hub, Status, Wardrobe, Playground (wind the key, feed gears).
 
 **UI conventions (from milestone A):**
 - Every screen but Home and Focus has `header()`'s ◂ Back, added to the group last so it's the knob's last stop. Hold also goes back; Back with no history goes Home.
@@ -200,7 +200,7 @@ Do them in order, one milestone at a time, checking each in the preview first.
   - **Start now** / **End set** buttons during the break.
   - Build on Anthony's end scopes (`endBreak`/`endSet`) and update the rules tests.
   - **Petting hearts** (user, 2026-10-24): tapping the pet shows little hearts floating up, like the frontend does. Decoration only: no hearts stat.
-- **D: Playground and pet interaction** (#3, #7)
+- **D: Playground and pet interaction** (#3, #7). **Built, not yet flashed.** The knob on the Playground winds (any detent) and feeds (press); a 2 s hold goes back, so Back isn't a knob stop there. Every body wears a key in the Playground. 12 clicks wind it fully: a 3 s dance (spins via squash and mirror, hops, hearts, tune), then it unwinds; left alone 3 s it runs down, and after 20 s it falls asleep. One gear in flight at a time, unlimited.
   - **Petting:** tap or drag the pet anywhere it appears to get a reaction (mood change, bounce).
   - **Winding:** in the Playground the knob winds its key and it spins.
   - **Feed it gears:** a little catch animation.
