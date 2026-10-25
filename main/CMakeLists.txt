@@ -44,6 +44,7 @@ idf_component_register(
     "ui/screens/intermission_screen.cpp"
     "ui/screens/ready_screen.cpp"
     "ui/screens/circle_screen.cpp"
+    "ui/screens/invite_screen.cpp"
     "ui/screens/pet_screen.cpp"
     "ui/screens/status_screen.cpp"
     "ui/screens/wardrobe_screen.cpp"

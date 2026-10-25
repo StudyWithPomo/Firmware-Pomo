@@ -488,8 +488,13 @@ void fill_lamps(lv_obj_t *container, const char *empty_text)
     lv_obj_clean(container);
     int count = 0;
     const AppState::Friend *friends = AppState::instance().friends(&count);
-    for (int i = 0; i < count; i++) lamp(container, friends[i].name, friends[i].focused);
-    if (count == 0 && empty_text) label(container, empty_text, &font_caslon_12, MUTED);
+    int shown = 0;
+    for (int i = 0; i < count; i++) {
+        if (friends[i].status != FriendStatus::MEMBER) continue;
+        lamp(container, friends[i].name, friends[i].focused);
+        shown++;
+    }
+    if (shown == 0 && empty_text) label(container, empty_text, &font_caslon_12, MUTED);
 }
 
 } // namespace theme

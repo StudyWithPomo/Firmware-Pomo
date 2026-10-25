@@ -134,10 +134,12 @@ Other notes:
 
 ## Unfinished from the original brief
 
-- **M7 ESP-NOW study circle:**
-  - Wi-Fi STA, no router, broadcast beacons `{name, focused, pct, in_session}` every ~1.5 s, drop a peer after 6 s silence.
-  - It feeds `Session::setCircle`, `AppState::setFriends` (lamps, multiplier) and the `circle` message.
-  - Needs two boards; about 40–55 KB of heap.
+- **M7 ESP-NOW study circle ("linked play", branch `linked-play`, not merged, not yet tested on hardware):**
+  - `app/circle_core.*` (pure, `test/circle_test.cpp`) and `comms/circle.*`. ESP-NOW broadcast on channel 1, no router, no esp_netif. Wire format v2: beacon `{name, phase, index, focused, pct, seq, group}` every 1.5 s (and on change), plus INVITE and DECLINE. A peer drops after 6 s silence.
+  - By invite (user, 2026-10-24): the host invites up to 2 free friends from the Circle screen with its lengths; the guest's Invite screen has Accept / Decline; the session starts on all once every invite is answered (or the host presses Start). The group stays in step for the whole set (a member in BREAK/READY follows another starting the next session); ending the set leaves it.
+  - The multiplier counts only group members who are studying; only their drift pauses it. Nearby friends who aren't in the group add nothing.
+  - `-DPOMO_FAKE_PEER=1`: Ava accepts invites, Dev declines and invites this device.
+  - Two test boards: COM5 (Ibrahim, pet Doug) and COM9 (Sidak, pet Mochi); names set over USB with a `config` line.
 - **Polish (the original "M9"; Anthony used that number for protocol v2):**
   - buzzer chime at the start of each break (LEDC on GPIO 22)
   - battery gauge behind `HAS_BATTERY` (ADC, smoothed, shown on Home)

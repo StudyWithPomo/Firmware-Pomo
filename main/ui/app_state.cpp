@@ -52,6 +52,7 @@ AppState::AppState() {
     lv_subject_init_int(&base_multiplier, 1);
     lv_subject_init_string(&circle_names, circle_names_buf, circle_names_prev, sizeof(circle_names_buf), "");
     lv_subject_init_int(&circle_version, 0);
+    lv_subject_init_int(&circle_role, (int)GroupRole::NONE);
 
     lv_subject_init_int(&study_min, 25);
     lv_subject_init_int(&break_min, 5);
@@ -74,6 +75,7 @@ AppState::AppState() {
 struct FriendUpdate {
     AppState::Friend friends[AppState::MAX_FRIENDS];
     int count;
+    AppState::CircleView view;
 };
 
 // Friends see the student's name, or the pet's until the laptop has sent one
@@ -160,11 +162,12 @@ void AppState::post(const UiCommand &cmd) {
     if (commands && xQueueSend(commands, &cmd, 0) != pdTRUE) ESP_LOGW(TAG, "UI command queue full");
 }
 
-void AppState::postFriends(const Friend *list, int count) {
+void AppState::postFriends(const Friend *list, int count, const CircleView &view) {
     if (!friend_updates) return;
     FriendUpdate update = {};
     update.count = count < 0 ? 0 : (count > MAX_FRIENDS ? MAX_FRIENDS : count);
     memcpy(update.friends, list, sizeof(Friend) * update.count);
+    update.view = view;
     xQueueOverwrite(friend_updates, &update);
 }
 
@@ -223,7 +226,7 @@ void AppState::drain(lv_timer_t *t) {
 
     FriendUpdate update;
     if (s.friend_updates && xQueueReceive(s.friend_updates, &update, 0) == pdTRUE)
-        s.setFriends(update.friends, update.count);
+        s.setFriends(update.friends, update.count, update.view);
 }
 
 void AppState::applySnapshot(const SessionSnapshot &snap) {
@@ -392,10 +395,24 @@ void AppState::setPet(int body, int face, int finish) {
     lv_subject_set_int(&pet_finish, finish);
 }
 
-void AppState::setFriends(const Friend *list, int count) {
+void AppState::setFriends(const Friend *list, int count, const CircleView &view) {
     if (count > MAX_FRIENDS) count = MAX_FRIENDS;
     memcpy(friend_list, list, sizeof(Friend) * count);
     friend_count = count;
+
+    // An invite arriving opens the Invite screen (only between sets: nobody is invited
+    // mid-session); one that goes away (declined, cancelled, run out) closes it. Accepting
+    // keeps it open until the host starts, and the session start moves on to Focus.
+    const GroupRole was = circle_view.role;
+    circle_view = view;
+    lv_subject_set_int(&circle_role, (int)view.role);
+    Navigator &nav = Navigator::instance();
+    const bool on_invite = nav.getCurrent() == ScreenID::INVITE;
+    if (view.role == GroupRole::INVITED && was != GroupRole::INVITED && !on_invite) {
+        nav.navigate(ScreenID::INVITE);
+    } else if (view.role == GroupRole::NONE && on_invite) {
+        nav.back();
+    }
 
     char names[sizeof(circle_names_buf)] = "";
     for (int i = 0; i < count; i++) {

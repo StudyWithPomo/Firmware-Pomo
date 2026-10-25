@@ -140,7 +140,8 @@ void format_mmss(char *buf, size_t size, int seconds);
 
 // "● Ava · focused" (verdigris lamp) or "● Dev · drifting" (copper lamp)
 lv_obj_t *lamp(lv_obj_t *parent, const char *name, bool focused);
-// Refill `container` with a lamp per friend in AppState, or `empty_text` when alone
+// Refill `container` with a lamp per friend in this device's study group, or `empty_text`
+// when studying alone
 void fill_lamps(lv_obj_t *container, const char *empty_text = "Studying solo");
 
 } // namespace theme

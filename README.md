@@ -54,15 +54,20 @@ g++ -std=c++17 -Wall -I main test/circle_test.cpp main/app/circle_core.cpp -o ci
 
 ## Study circle (linked play)
 
-Pomo devices near each other form a study circle: each friend nearby adds 1× XP, studying or resting (up to 3×), and the bonus pauses while anyone studying drifts. Every device joins automatically: each one broadcasts a small beacon over ESP-NOW (Wi-Fi channel 1, no router) every 1.5 s, and a friend not heard from for 6 s leaves. Work in progress on the `linked-play` branch.
+Pomo devices near each other see each other in the **Circle** screen: each one broadcasts a small beacon over ESP-NOW (Wi-Fi channel 1, no router) every 1.5 s, and a friend not heard from for 6 s drops off the list. Studying together is by invite:
 
-To try it on one board, build with scripted friends:
+- Tap a free friend on the Circle screen to invite them (up to two, with your study and break lengths). Their device shows "Ibrahim invited you to a study session" with Accept / Decline.
+- The session starts on everyone's device once every invite is answered and someone accepted, or when the host presses Start.
+- The group stays in step for the whole set: breaks run together, and when one person starts the next session the others follow. Ending the set leaves the group.
+- Each friend studying with you adds 1× XP (up to 3×), and the bonus pauses while any of you drifts. Friends who are only nearby add nothing.
+
+Work in progress on the `linked-play` branch. To try it on one board, build with scripted friends:
 
 ```bash
 idf.py -DPOMO_FAKE_PEER=1 build
 ```
 
-Dev is always nearby but resting, and Ava studies for 100 s (drifting from 40 to 55 s), goes quiet for 20 s, and repeats. Build with `-DPOMO_FAKE_PEER=0` to turn them off again.
+Ava accepts invites after 2 s and then keeps in step with you; Dev declines, and invites you himself 20 s after boot (and every 3 minutes while you're free). Build with `-DPOMO_FAKE_PEER=0` to turn them off again.
 
 ## Screen preview
 
