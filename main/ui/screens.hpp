@@ -8,7 +8,8 @@ enum class ScreenID {
     FOCUS,          // includes the PEEK and DRIFT states
     INTERMISSION,
     READY,          // "Ready for session N of 4?" after a break
-    CIRCLE,
+    CIRCLE,         // friends nearby, invites, the study group
+    INVITE,         // "Ibrahim invited you to study": Accept / Decline, then waiting to start
     PET,            // hub: Status, Playground, Wardrobe
     STATUS,
     WARDROBE,
@@ -29,6 +30,7 @@ void screen_focus(lv_obj_t *parent, lv_group_t *group);
 void screen_intermission(lv_obj_t *parent, lv_group_t *group);
 void screen_ready(lv_obj_t *parent, lv_group_t *group);
 void screen_circle(lv_obj_t *parent, lv_group_t *group);
+void screen_invite(lv_obj_t *parent, lv_group_t *group);
 void screen_pet(lv_obj_t *parent, lv_group_t *group);
 void screen_status(lv_obj_t *parent, lv_group_t *group);
 void screen_wardrobe(lv_obj_t *parent, lv_group_t *group);

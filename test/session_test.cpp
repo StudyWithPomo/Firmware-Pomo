@@ -195,6 +195,15 @@ static void test_multiplier()
     run(s, 14 * 60, &e);
     CHECK_EQ(e.result.xp_delta, 1 + 14 * 2);
 
+    // Me, Dev and Ava -> 3x; me alone -> 1x
+    SessionCore three;
+    three.setCircle(2, false);
+    three.snapshot(&snap);
+    CHECK_EQ(snap.multiplier, 3);
+    three.setCircle(0, false);
+    three.snapshot(&snap);
+    CHECK_EQ(snap.multiplier, 1);
+
     SessionCore capped;
     capped.setCircle(5, false);
     capped.snapshot(&snap);

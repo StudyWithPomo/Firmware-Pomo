@@ -18,6 +18,7 @@ Navigator& Navigator::instance() {
         {ScreenID::INTERMISSION, screen_intermission},
         {ScreenID::READY, screen_ready},
         {ScreenID::CIRCLE, screen_circle},
+        {ScreenID::INVITE, screen_invite},
         {ScreenID::PET, screen_pet},
         {ScreenID::STATUS, screen_status},
         {ScreenID::WARDROBE, screen_wardrobe},
@@ -35,6 +36,7 @@ const char *screen_name(ScreenID id) {
         case ScreenID::INTERMISSION: return "Intermission";
         case ScreenID::READY: return "Ready";
         case ScreenID::CIRCLE: return "Study Circle";
+        case ScreenID::INVITE: return "Invite";
         case ScreenID::PET: return "Pet";
         case ScreenID::STATUS: return "Status";
         case ScreenID::WARDROBE: return "Wardrobe";

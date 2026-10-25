@@ -61,8 +61,10 @@ static void update_near(lv_observer_t *observer, lv_subject_t *subject)
     int count = 0;
     AppState::instance().friends(&count);
     lv_obj_t *label = lv_observer_get_target_obj(observer);
+    const int mult = lv_subject_get_int(&AppState::instance().base_multiplier);
     if (count == 0) lv_label_set_text(label, "Solo");
-    else lv_label_set_text_fmt(label, "%d near · %d×", count, (int)lv_subject_get_int(&AppState::instance().base_multiplier));
+    else if (mult > 1) lv_label_set_text_fmt(label, "%d near · %d×", count, mult);
+    else lv_label_set_text_fmt(label, "%d near", count);
 }
 
 static void on_start(lv_event_t *e) { AppState::instance().startSession(); }

@@ -2,6 +2,7 @@
 #include "lvgl.h"
 #include "freertos/FreeRTOS.h"
 #include "freertos/queue.h"
+#include <app/circle_core.hpp>
 #include <app/session_core.hpp>
 #include <app/storage.hpp>
 
@@ -14,10 +15,31 @@ public:
 
     struct Friend {
         char name[11];
-        bool focused;
-        int pct;
+        bool focused;           // not drifting (always true when not studying)
+        int pct;                // last session's focus %, 0 while studying
+        uint8_t mac[6];         // to invite them
+        FriendStatus status;    // free, busy, invited, declined, or in our group
+        bool studying;
     };
     static constexpr int MAX_FRIENDS = 4;
+
+    // This device's part in a study group, for the Circle and Invite screens
+    struct CircleView {
+        GroupRole role;
+        char host[11];          // INVITED / JOINED: who invited us
+        uint8_t study, brk;     // the group's lengths (HOSTING: ours; else the invite's)
+        bool test;
+        bool can_invite;        // free to invite (another) friend
+        bool can_start;         // HOSTING with someone joined
+    };
+
+    // The friend the Study screen is setting up an invite for: Circle -> Study, where Start
+    // becomes "Invite Sidak" and sends the invite with the lengths chosen there
+    struct InviteTarget {
+        bool active;
+        uint8_t mac[6];
+        char name[11];
+    };
 
     // A change requested by another task (the laptop link), applied in the LVGL task
     struct UiCommand {
@@ -49,7 +71,8 @@ public:
     lv_subject_t multiplier;        // effective right now: 1 while anyone drifts
     lv_subject_t base_multiplier;   // the circle's bonus when nobody drifts ("2x paused")
     lv_subject_t circle_names;      // string, e.g. "Ava, Dev"; empty when alone
-    lv_subject_t circle_version;    // bumps whenever friends() changes
+    lv_subject_t circle_version;    // bumps whenever friends() or circleView() changes
+    lv_subject_t circle_role;       // GroupRole
 
     // Timer settings
     lv_subject_t study_min;         // 15 / 25 / 45 / 60
@@ -88,6 +111,9 @@ public:
 
     // Queue a change from another task (any task)
     void post(const UiCommand &cmd);
+    // The study circle's friends and group, from the circle task (any task). Only the latest
+    // is kept.
+    void postFriends(const Friend *friends, int count, const CircleView &view);
 
     // ---- Actions (LVGL task) ----
     bool startSession();                    // with the current lengths and test timing
@@ -101,9 +127,14 @@ public:
     void setStudyLength(int study_min);     // resets the break to 1/5 of it
     void setBreakLength(int break_min);
     void setPet(int body, int face, int finish);
-    void setFriends(const Friend *friends, int count);
+    // Also opens the Invite screen when an invite arrives, and leaves it when the invite goes
+    void setFriends(const Friend *friends, int count, const CircleView &view = CircleView{});
 
     const Friend *friends(int *count) const { *count = friend_count; return friend_list; }
+    const CircleView &circleView() const { return circle_view; }
+    // nullptr clears it
+    void setInviteTarget(const Friend *f);
+    const InviteTarget &inviteTarget() const { return invite_target; }
     const SessionResult &lastResult() const { return last_result; }
     const SessionLog &log() const { return session_log; }
     // Today as a SessionLog day number, or 0 while the clock isn't set
@@ -124,9 +155,12 @@ private:
 
     Friend friend_list[MAX_FRIENDS] = {};
     int friend_count = 0;
+    CircleView circle_view = {};
+    InviteTarget invite_target = {};
     SessionResult last_result = {};
     SessionLog session_log = {};
     QueueHandle_t commands = nullptr;
+    QueueHandle_t friend_updates = nullptr;    // length 1, overwritten
     lv_timer_t *peek_timer = nullptr;
     lv_timer_t *shh_timer = nullptr;
     lv_timer_t *petted_timer = nullptr;

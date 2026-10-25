@@ -255,11 +255,16 @@ int main(int argc, char **argv)
     nav_reset(ScreenID::HOME);
     shot("01_home_solo", "01 Home, studying solo");
 
-    AppState::Friend friends[] = { {"Ava", true, 0}, {"Dev", true, 0} };
-    state.setFriends(friends, 2);
-    Session::instance().setCircle(2, false);
+    AppState::CircleView solo = {};
+    solo.can_invite = true;
+    AppState::Friend friends[] = {
+        {"Ava", true, 0, {1}, FriendStatus::FREE, false},
+        {"Dev", true, 82, {2}, FriendStatus::FREE, false},
+        {"Kai", true, 0, {3}, FriendStatus::BUSY, true},
+    };
+    state.setFriends(friends, 3, solo);
     pump(100);
-    shot("01_home_circle", "01 Home, with Ava and Dev nearby");
+    shot("01_home_circle", "01 Home, with Ava, Dev and Kai nearby");
     focus_next();
     shot("01_home_circle_focus", "01 Home, knob on the Study tile");
     tap_pet();
@@ -317,7 +322,60 @@ int main(int argc, char **argv)
 
     nav_reset(ScreenID::HOME);
     nav_go(ScreenID::CIRCLE);
-    shot("08_circle", "Study circle");
+    shot("08_circle", "Study circle: tap a friend to invite them");
+    click_focused(); // Ava: choose the lengths first
+    shot("08_circle_invite_study", "Study, opened to invite Ava");
+    Navigator::instance().back();
+    pump(50);
+
+    AppState::CircleView hosting = {};
+    hosting.role = GroupRole::HOSTING;
+    hosting.study = 25;
+    hosting.brk = 5;
+    hosting.can_invite = true;
+    friends[0].status = FriendStatus::INVITED;
+    friends[1].status = FriendStatus::DECLINED;
+    state.setFriends(friends, 3, hosting);
+    shot("08_circle_hosting", "Study circle: Ava invited, Dev declined");
+    friends[0].status = FriendStatus::MEMBER;
+    friends[1].status = FriendStatus::FREE;
+    hosting.can_start = true;
+    state.setFriends(friends, 3, hosting);
+    shot("08_circle_joined", "Study circle: Ava joined, Start or invite Dev too");
+
+    // An invite arriving opens the Invite screen
+    nav_reset(ScreenID::HOME);
+    pump(50);
+    AppState::CircleView invited = {};
+    invited.role = GroupRole::INVITED;
+    strcpy(invited.host, "Ibrahim");
+    invited.study = 25;
+    invited.brk = 5;
+    AppState::Friend host[] = { {"Ibrahim", true, 0, {9}, FriendStatus::BUSY, false} };
+    state.setFriends(host, 1, invited);
+    shot("09_invite", "09 Invite: Ibrahim invited you");
+    AppState::CircleView joined = invited;
+    joined.role = GroupRole::JOINED;
+    host[0].status = FriendStatus::MEMBER;
+    state.setFriends(host, 1, joined);
+    shot("09_invite_joined", "09 Invite, accepted: waiting for Ibrahim to start");
+    joined.test = true;
+    state.setFriends(host, 1, joined);
+    shot("09_invite_test", "09 Invite with test timing");
+    state.setFriends(friends, 0, solo);   // the invite went: back Home
+    pump(100);
+
+    // Studying with Ava and Dev for the sessions below
+    AppState::CircleView in_set = {};
+    in_set.role = GroupRole::IN_SET;
+    AppState::Friend group[] = {
+        {"Ava", true, 0, {1}, FriendStatus::MEMBER, true},
+        {"Dev", true, 0, {2}, FriendStatus::MEMBER, true},
+        {"Kai", true, 0, {3}, FriendStatus::BUSY, true},
+    };
+    state.setFriends(group, 3, in_set);
+    Session::instance().setCircle(2, false);
+    pump(100);
 
     // A real session: Begin on Home
     nav_reset(ScreenID::HOME);

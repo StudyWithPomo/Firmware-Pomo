@@ -123,6 +123,14 @@ int SystemAPI::setCurrentTime(long epochSeconds) const
 
 void link_send_circle() {}
 
+// ---- Study circle (the preview sets friends directly) ----
+
+void circle_set_name(const char *) {}
+void circle_invite(const uint8_t *, int, int, bool) {}
+void circle_start() {}
+void circle_cancel() {}
+void circle_answer(bool) {}
+
 // ---- Saved progress (nothing is persisted in the preview) ----
 
 #include "app/storage.hpp"
