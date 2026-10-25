@@ -53,4 +53,8 @@ void clock_known(PetCare *care, long now);
 // "full", "content", "peckish", "hungry" (the protocol's names)
 const char *hunger_name(Hunger hunger);
 
+// The pet message's event for a feed attempt: "fed", "empty", "stuffed". The same whether the
+// feed came from the knob, the Playground's button or the laptop's {"t":"feed"}.
+const char *feed_event(FeedResult result);
+
 } // namespace pet_care

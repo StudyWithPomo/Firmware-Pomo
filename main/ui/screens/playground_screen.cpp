@@ -231,20 +231,21 @@ static void gear_caught(lv_anim_t *a)
     delight();
 }
 
-static void feed()
+// Returns false if it couldn't try (busy): then no gear is spent and nothing is said
+static bool feed()
 {
-    if (ui.gear || ui.dancing || !ui.pet) return; // one gear at a time
+    if (ui.gear || ui.dancing || !ui.pet) return false; // one gear at a time
     played();
     ui.feeding_hungry = hunger() == Hunger::HUNGRY;
     switch (AppState::instance().feed()) {
         case FeedResult::EMPTY:
             buzzer_play(BUZZ_SHH);
             say("Out of gears! Finish a session to earn some.");
-            return;
+            return true;
         case FeedResult::STUFFED:
             buzzer_play(BUZZ_SHH);
             say("I'm stuffed! Save it for later.");
-            return;
+            return true;
         default:
             break;
     }
@@ -274,7 +275,10 @@ static void feed()
     lv_anim_set_duration(&a, GEAR_FLIGHT_MS);
     lv_anim_set_completed_cb(&a, gear_caught);
     lv_anim_start(&a);
+    return true;
 }
+
+bool playground_feed() { return feed(); }
 
 // ---- Input ----
 

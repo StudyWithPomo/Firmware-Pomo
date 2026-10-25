@@ -53,4 +53,13 @@ const char *hunger_name(Hunger hunger)
     }
 }
 
+const char *feed_event(FeedResult result)
+{
+    switch (result) {
+        case FeedResult::EMPTY: return "empty";
+        case FeedResult::STUFFED: return "stuffed";
+        default: return "fed";
+    }
+}
+
 } // namespace pet_care

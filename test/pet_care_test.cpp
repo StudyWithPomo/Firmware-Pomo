@@ -3,6 +3,7 @@
 //   g++ -std=c++17 -Wall -I main test/pet_care_test.cpp main/app/pet_care.cpp main/app/session_core.cpp main/utilities.cpp -o pet_care_test && ./pet_care_test
 
 #include <stdio.h>
+#include <string.h>
 
 #include "app/pet_care.hpp"
 
@@ -124,6 +125,33 @@ static void test_clock()
     CHECK_EQ(fresh.fed_at, T - DAY);
 }
 
+// The laptop's {"t":"feed"} and the device's Feed call the same feed(): one gear store, one
+// stuffed window, and the same event names in the pet message
+static void test_feed_from_anywhere()
+{
+    puts("feeds from the laptop and the device share the rules");
+    PetCare c;
+    c.gears = 4;
+    const long up = 500;
+    // device, laptop, device: three feeds in a few minutes, whoever sent them
+    CHECK_EQ((int)feed(&c, T, up), (int)FeedResult::FED);
+    CHECK_EQ((int)feed(&c, T + 60, up + 60), (int)FeedResult::FED);
+    CHECK_EQ((int)feed(&c, T + 120, up + 120), (int)FeedResult::FED);
+    CHECK_EQ(c.gears, 1);
+    // a fourth from the laptop is refused like one from the knob, and keeps its gear
+    CHECK_EQ((int)feed(&c, T + 180, up + 180), (int)FeedResult::STUFFED);
+    CHECK_EQ(c.gears, 1);
+    if (strcmp(feed_event(FeedResult::FED), "fed") != 0 || strcmp(feed_event(FeedResult::EMPTY), "empty") != 0 ||
+        strcmp(feed_event(FeedResult::STUFFED), "stuffed") != 0) {
+        puts("  FAIL feed event names");
+        failures++;
+    }
+    // and with no gears at all it's empty, from anywhere
+    PetCare none;
+    CHECK_EQ((int)feed(&none, T, up), (int)FeedResult::EMPTY);
+    CHECK_EQ(none.gears, 0);
+}
+
 static void test_names()
 {
     puts("names");
@@ -140,6 +168,7 @@ int main()
     test_feeding();
     test_hunger();
     test_clock();
+    test_feed_from_anywhere();
     test_names();
     if (failures) {
         printf("%d check(s) failed\n", failures);

@@ -531,6 +531,12 @@ int main(int argc, char **argv)
     click_focused(); // none left
     pump(100);
     shot("06_playground_empty", "Playground, out of gears");
+    {
+        AppState::UiCommand feed_cmd = {};
+        feed_cmd.type = AppState::UiCommand::FEED;
+        state.post(feed_cmd); // the laptop's {"t":"feed"} with no gears left: refused, on the Playground
+        pump(100);
+    }
     nav_reset(ScreenID::HOME);
     shot("01_home_full", "01 Home, just fed: full");
     nav_go(ScreenID::STATUS);

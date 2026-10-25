@@ -209,6 +209,16 @@ void AppState::applyCommand(const UiCommand &cmd) {
         case UiCommand::PEEK:
             if ((Phase)lv_subject_get_int(&phase) == Phase::STUDY) peek();
             break;
+        case UiCommand::FEED:
+            // The laptop's Feed button. On the Playground it's the same as pressing Feed there
+            // (the toss and catch, or the refusal). Anywhere else, or while the Playground is
+            // busy with a gear or a dance, the gear is still spent, with just the sound.
+            // Either way it's feed() above: the same rules and the same pet message.
+            if (Navigator::instance().getCurrent() != ScreenID::PLAYGROUND || !playground_feed()) {
+                const FeedResult result = feed();
+                buzzer_play(result == FeedResult::FED ? BUZZ_CRUNCH : BUZZ_SHH);
+            }
+            break;
     }
 }
 
@@ -246,7 +256,7 @@ FeedResult AppState::feed() {
     const FeedResult result = pet_care::feed(&pet_state, knownTime(), uptime_s());
     lv_subject_set_int(&gears, pet_state.gears);
     if (pet_state.fed_at != fed_at) scheduleSave();
-    refreshCare(result == FeedResult::FED ? "fed" : result == FeedResult::EMPTY ? "empty" : "stuffed");
+    refreshCare(pet_care::feed_event(result));
     ESP_LOGI(TAG, "Feed: %s, %d gears left", result == FeedResult::FED ? "fed" : "refused", pet_state.gears);
     return result;
 }

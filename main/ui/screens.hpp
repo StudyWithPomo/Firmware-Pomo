@@ -35,6 +35,9 @@ void screen_pet(lv_obj_t *parent, lv_group_t *group);
 void screen_status(lv_obj_t *parent, lv_group_t *group);
 void screen_wardrobe(lv_obj_t *parent, lv_group_t *group);
 void screen_playground(lv_obj_t *parent, lv_group_t *group);
+// Feed a gear as the Playground's Feed button does (the laptop's {"t":"feed"} on that screen).
+// False if the Playground isn't up or is busy (a gear in the air, a dance): nothing was tried.
+bool playground_feed();
 
 // Touch calibration check (POMO_TOUCH_TEST)
 void screen_touch_test(lv_obj_t *parent);

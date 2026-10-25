@@ -266,7 +266,24 @@ Additions only: nothing existing changes.
 | `event` | why it was sent: `hello`, `earned`, `fed`, `empty`, `stuffed`, `hunger` (the level changed) |
 | `earned` | only with `earned`: gears this session added after the cap (0 when the bar was full) |
 
-The laptop doesn't send anything new. To feed from the dashboard later we'd add a `feed` command; not planned yet.
+### Laptop → device: `feed`
+
+```json
+{"t": "feed"}
+```
+
+No fields. It feeds the pet one gear **exactly as the device's own Feed does** (a knob press on the Playground, or its Feed button): the device runs the same `feed()`, with the same rules. The laptop only asks. It never sends counts, and the device stays the only source of truth for gears and hunger.
+
+| On the device | What happens |
+|---|---|
+| The Playground is on screen | Exactly a press of Feed there: a gear is spent, then the toss, catch and crunch with "Crunchy! Thank you." ("Oh, that's better!" when it was hungry). Refused: the `SHH` hum with "Out of gears! ..." or "I'm stuffed! ...". |
+| Any other screen, or the Playground busy (a gear already in the air, or dancing) | The same feed is applied, without opening the Playground or animating: `CRUNCH` when fed, `SHH` when refused. |
+
+**The answer** is the `pet` message, identical to a feed on the device: `"event"` is `fed`, `empty` or `stuffed`, with the new `gears` (and `hunger`, `fed_at`). Feeds from the laptop and from the device count toward the same "stuffed" limit (3 in 30 minutes).
+
+So the dashboard's Feed button should send `{"t":"feed"}`, then show whatever the `pet` message reports. It shouldn't change its own gear count first.
+
+In the schema (Pomo-App `src/pomo/web/schema/pomo-device.schema.json`) it's the `feed` def. The dashboard's outgoing allowlist (`OUT` in `src/pomo/web/app.js`) has a matching `feed` entry.
 
 ### Test cases (the device's rules tests; the dashboard can use the same)
 
@@ -293,6 +310,11 @@ The laptop doesn't send anything new. To feed from the dashboard later we'd add 
 ---
 
 ## Log
+
+### 2026-10-25: the laptop can feed the pet (`{"t":"feed"}`)
+- New laptop → device command `feed` (no fields). It runs the device's own `feed()`: on the Playground exactly as its Feed button (toss and catch, or the refusal), and anywhere else the same feed with just the sound. The device answers with its usual `pet` message (`fed` / `empty` / `stuffed`). The device decides; the laptop never sends counts. See "Laptop → device: `feed`" under Protocol additions.
+- Schema: a `feed` def in Pomo-App's `pomo-device.schema.json`, plus the matching `OUT` allowlist entry in `app.js`.
+- Rules test: feeds from the laptop and the device share one gear store, one stuffed window and the same event names.
 
 ### 2026-10-25: Milestone E built (not yet flashed)
 - Everything in Part 2, as specified, with these details settled while building (Part 2 now says them):

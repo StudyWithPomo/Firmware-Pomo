@@ -44,7 +44,7 @@ public:
 
     // A change requested by another task (the laptop link), applied in the LVGL task
     struct UiCommand {
-        enum Type : uint8_t { CONFIG, PEEK } type;
+        enum Type : uint8_t { CONFIG, PEEK, FEED } type;
         bool has_user, has_pet_name, has_time, has_tz;
         char user[17];
         char pet_name[11];
@@ -133,7 +133,7 @@ public:
     void peek();                            // light the timer for 5 s
     void shh();                             // the pet hushes for 2 s
     void petted();                          // outside study, the pet is pleased for 2 s
-    FeedResult feed();                      // spend a gear on the pet (the Playground's Feed)
+    FeedResult feed();                      // spend a gear on the pet: every feed comes here
     void setStudyLength(int study_min);     // resets the break to 1/5 of it
     void setBreakLength(int break_min);
     void setPet(int body, int face, int finish);

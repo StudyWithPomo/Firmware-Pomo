@@ -299,6 +299,11 @@ static void handle_line(const char *line)
         AppState::UiCommand cmd = {};
         cmd.type = AppState::UiCommand::PEEK;
         AppState::instance().post(cmd);
+    } else if (strcmp(t->valuestring, "feed") == 0) {
+        // The laptop asks; the device decides and answers with a pet message (fed/empty/stuffed)
+        AppState::UiCommand cmd = {};
+        cmd.type = AppState::UiCommand::FEED;
+        AppState::instance().post(cmd);
     }
     // Anything else (ping, break, finished, ...) is ignored: the device runs the session
 

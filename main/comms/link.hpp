@@ -15,6 +15,9 @@
 //    "time":1792790040,"tz":-240}        time = epoch seconds, tz = minutes east of UTC (both optional)
 //   {"t":"start","study":25,"brk":5}     starts a session if none is running (values snapped)
 //   {"t":"peek"}                         lights the timer for 5 s
+//   {"t":"feed"}                         feeds the pet a gear, exactly as the device's own Feed
+//                                        (the device decides; the answer is a pet message with
+//                                        event fed, empty or stuffed and the new gears)
 //   {"t":"end","scope":"break"}          ends the break or long rest
 //   {"t":"end","scope":"session"}        ends the whole set (scored first if studying)
 // Device -> laptop:
