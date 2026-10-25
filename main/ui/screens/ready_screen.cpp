@@ -1,5 +1,5 @@
 // Ready: the break ran out, and the device waits instead of starting the next session on its
-// own. "Ready for session 2 of 4?" with Start next / Finish for now. Tapping the pet pets it.
+// own. "Ready for session II of IV?" with Start next / Finish for now. Tapping the pet pets it.
 // Holding the knob does nothing: there's nothing to go back to.
 
 #include <ui/screens.hpp>
@@ -18,8 +18,8 @@ static lv_obj_t *s_porthole;
 static void update_question(lv_observer_t *observer, lv_subject_t *subject)
 {
     // While READY, session_index is the session just finished
-    lv_label_set_text_fmt(lv_observer_get_target_obj(observer), "Ready for\nsession %d of %d?",
-                          (int)lv_subject_get_int(subject) + 1, SessionCore::SESSIONS_PER_SET);
+    lv_label_set_text_fmt(lv_observer_get_target_obj(observer), "Ready for\nsession %s of IV?",
+                          roman((int)lv_subject_get_int(subject) + 1));
 }
 
 static void on_pet_tap(lv_event_t *e)

@@ -26,6 +26,15 @@ public:
     void setCircle(int friends, bool friend_drifting);
     void setXp(int xp);
 
+    // The laptop's heartbeat. The dashboard sends a ping every 2 s while it's coupled; any
+    // line from it counts as heard. Once a ping has come in, LAPTOP_TIMEOUT_S of silence
+    // drops the laptop's drift and pauses a study session (snapshot.paused) until the laptop
+    // is heard again or forgetLaptop() (the device's "Go on alone"). A dashboard that never
+    // pings never pauses anything.
+    static constexpr int LAPTOP_TIMEOUT_S = 6;
+    void laptopHeard(bool ping);
+    void forgetLaptop();
+
     // Copy of the current state (any task)
     SessionSnapshot snapshot();
 
@@ -39,6 +48,11 @@ private:
     static void onTick(void *arg);
     // Call with the mutex held
     void publish(const SessionEvent *event);
+    bool laptopLinked() const;
+
+    bool laptop_armed = false;      // a ping came in since boot or forgetLaptop()
+    int64_t laptop_heard_us = 0;
+    bool laptop_was_linked = false;
 
     SessionCore core;
     SemaphoreHandle_t mutex = nullptr;

@@ -73,6 +73,8 @@ struct SessionSnapshot {
     int level;
     int earned;             // XP earned so far this study session (added to xp when it's scored)
     bool test;              // test timing (see SessionCore::TEST_PHASE_S)
+    bool paused;            // study is on hold because the laptop went silent (setPaused)
+    bool laptop;            // the laptop's heartbeat is coming in (filled in by Session)
 };
 
 class SessionCore {
@@ -138,6 +140,11 @@ public:
     // multiplier = 1 + friends, capped) and whether one of them is drifting right now
     void setCircle(int friends, bool friend_drifting);
     void setXp(int xp) { xp_ = xp < 0 ? 0 : xp; }
+    // Hold the study timer while the laptop is gone: no seconds count, and the laptop's drift
+    // and the camera's are cleared, since their sources went with it. Ignored outside study;
+    // the session ending (or the next one starting) clears it.
+    void setPaused(bool paused);
+    bool paused() const { return paused_; }
 
     void snapshot(SessionSnapshot *out) const;
     Phase phase() const { return phase_; }
@@ -164,6 +171,7 @@ private:
     int study_min_ = 25;
     int break_min_ = 5;
     bool test_ = false;
+    bool paused_ = false;
     int remaining_s_ = 0;
     int total_s_ = 0;
 

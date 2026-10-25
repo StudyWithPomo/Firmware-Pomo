@@ -57,6 +57,11 @@ extern "C" {
     X(END,           BUZZ_PRIO_NOTICE,   1, BZ(2093, 12, 80), BZ_REST(30), BZ(1568, 12, 150)) \
     /* a drift began: a low double nudge */ \
     X(DRIFT,         BUZZ_PRIO_NOTICE,   1, BZ(1000, 18, 90), BZ_REST(70), BZ(1000, 18, 90)) \
+    /* the laptop went silent and the session paused: a slow fall */ \
+    X(LINK_LOST,     BUZZ_PRIO_NOTICE,   1, BZ(1568, 18, 140), BZ_REST(40), BZ(1175, 18, 140), \
+                                            BZ_REST(40), BZ(880, 18, 220)) \
+    /* the laptop is back and the session runs again: a quick rise */ \
+    X(LINK_BACK,     BUZZ_PRIO_NOTICE,   1, BZ(1568, 15, 60), BZ(2093, 15, 60), BZ(2637, 15, 90)) \
     /* a friend invited us to a study circle: ding-dong, twice */ \
     X(INVITE,        BUZZ_PRIO_NOTICE,   2, BZ(2637, 30, 150), BZ_REST(40), BZ(2093, 30, 260), \
                                             BZ_REST(250)) \

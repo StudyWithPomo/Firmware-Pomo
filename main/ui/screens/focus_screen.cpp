@@ -4,9 +4,11 @@
 //   Dark (default): pet centre stage, unlit tubes
 //   Peek:           tubes lit for 5 s (or always, with "Always show timer"), progress rail
 //   Drift:          copper band naming the drift, annoyed pet, "2x paused"
+//   Laptop lost:    the laptop's heartbeat stopped, so the timer is held (as the dashboard
+//                   says too); the sad pet waits for it, or Go on alone carries on without it
 // Under the views, Peek and End session buttons for the knob and touch alike. Peek is hidden
-// while drifting or always showing the timer. End session (or a 2 s hold) asks first.
-// Tapping the pet hushes it.
+// while drifting or always showing the timer, and becomes Go on alone while the laptop is
+// lost. End session (or a 2 s hold) asks first. Tapping the pet hushes it.
 
 #include <stdio.h>
 
@@ -27,12 +29,13 @@ static struct {
     lv_obj_t *dark;
     lv_obj_t *peek;
     lv_obj_t *drift;
+    lv_obj_t *lost;
     lv_obj_t *modal;
 } ui;
 
 static void show_only(lv_obj_t *view)
 {
-    lv_obj_t *views[] = { ui.dark, ui.peek, ui.drift };
+    lv_obj_t *views[] = { ui.dark, ui.peek, ui.drift, ui.lost };
     for (lv_obj_t *v : views) {
         if (v == view) lv_obj_remove_flag(v, LV_OBJ_FLAG_HIDDEN);
         else lv_obj_add_flag(v, LV_OBJ_FLAG_HIDDEN);
@@ -42,14 +45,17 @@ static void show_only(lv_obj_t *view)
 static void update_view(lv_observer_t *observer, lv_subject_t *subject)
 {
     AppState &state = AppState::instance();
+    const bool paused = lv_subject_get_int(&state.session_paused);
     const bool drifting = lv_subject_get_int(&state.focus_state);
     const bool always = lv_subject_get_int(&state.always_show_timer);
-    if (drifting) show_only(ui.drift);
+    if (paused) show_only(ui.lost);
+    else if (drifting) show_only(ui.drift);
     else if (lv_subject_get_int(&state.peek_active) || always) show_only(ui.peek);
     else show_only(ui.dark);
 
+    lv_label_set_text(lv_obj_get_child(lv_obj_get_child(ui.peek_btn, 0), 1), paused ? "Go on alone" : "Peek");
     // Nothing to peek at: the knob skips the hidden button
-    if (drifting || always) {
+    if (!paused && (drifting || always)) {
         lv_obj_add_flag(ui.peek_btn, LV_OBJ_FLAG_HIDDEN);
         if (lv_group_get_focused(ui.group) == ui.peek_btn) lv_group_focus_obj(ui.end_btn);
     } else {
@@ -87,10 +93,32 @@ static void update_small_timer(lv_observer_t *observer, lv_subject_t *subject)
     lv_label_set_text(lv_observer_get_target_obj(observer), text);
 }
 
+// In the dashboard's words: "YouTube Detected", "Gone Idle", or what the camera saw
 static void update_drift_name(lv_observer_t *observer, lv_subject_t *subject)
 {
-    const char *name = lv_subject_get_string(subject);
-    lv_label_set_text_fmt(lv_observer_get_target_obj(observer), "%s Detected", name[0] ? name : "Drift");
+    AppState &state = AppState::instance();
+    const char *name = lv_subject_get_string(&state.drift_label);
+    lv_obj_t *label = lv_observer_get_target_obj(observer);
+    switch ((DriftKind)lv_subject_get_int(&state.drift_kind)) {
+        case DriftKind::IDLE: lv_label_set_text(label, "Gone Idle"); break;
+        case DriftKind::CAMERA: lv_label_set_text(label, name[0] ? name : "Camera"); break;
+        default: lv_label_set_text_fmt(label, "%s Detected", name[0] ? name : "Drift"); break;
+    }
+}
+
+static void update_drift_note(lv_observer_t *observer, lv_subject_t *subject)
+{
+    AppState &state = AppState::instance();
+    lv_obj_t *text = lv_obj_get_child(lv_observer_get_target_obj(observer), 0);
+    if ((DriftKind)lv_subject_get_int(&state.drift_kind) == DriftKind::IDLE)
+        lv_label_set_text_fmt(text, "%s is waiting for you.", lv_subject_get_string(&state.pet_name));
+    else
+        lv_label_set_text(text, "Kindly return to your studies.");
+}
+
+static void update_earned(lv_observer_t *observer, lv_subject_t *subject)
+{
+    lv_label_set_text_fmt(lv_observer_get_target_obj(observer), "+%d XP so far", (int)lv_subject_get_int(subject));
 }
 
 static void update_drift_time(lv_observer_t *observer, lv_subject_t *subject)
@@ -123,7 +151,9 @@ static void update_lamps(lv_observer_t *observer, lv_subject_t *subject)
 static void on_peek(lv_event_t *e)
 {
     if (ui.modal) return;
-    AppState::instance().peek();
+    AppState &state = AppState::instance();
+    if (lv_subject_get_int(&state.session_paused)) state.goOnAlone();
+    else state.peek();
 }
 
 static void on_pet_tap(lv_event_t *e)
@@ -191,9 +221,13 @@ static lv_obj_t *view(lv_obj_t *content)
     return v;
 }
 
+// "Session II of IV", as the dashboard numbers them
 static void update_title(lv_observer_t *observer, lv_subject_t *subject)
 {
-    lv_label_set_text(lv_observer_get_target_obj(observer), lv_subject_get_int(subject) ? "In Session · Test" : "In Session");
+    AppState &state = AppState::instance();
+    lv_label_set_text_fmt(lv_observer_get_target_obj(observer), "Session %s of IV%s",
+                          roman(lv_subject_get_int(&state.session_index)),
+                          lv_subject_get_int(&state.session_test) ? " · Test" : "");
 }
 
 static void header(lv_obj_t *v)
@@ -202,6 +236,7 @@ static void header(lv_obj_t *v)
     lv_obj_set_width(top, LV_PCT(100));
     lv_obj_t *title = label(top, "", &font_fell_14);
     lv_subject_add_observer_obj(&AppState::instance().session_test, update_title, title, nullptr);
+    lv_subject_add_observer_obj(&AppState::instance().session_index, update_title, title, nullptr);
     lv_obj_t *badge = chip(top, "", &font_fell_14, true);
     lv_subject_add_observer_obj(&AppState::instance().multiplier, update_badge, badge, nullptr);
 }
@@ -262,6 +297,8 @@ static void build_peek(lv_obj_t *v)
     lv_obj_set_style_bg_opa(fill, LV_OPA_COVER, 0);
     lv_obj_set_style_bg_color(fill, c(BRASS), 0);
     lv_subject_add_observer_obj(&state.timer_remaining_s, update_rail, fill, nullptr);
+    lv_obj_t *earned = label(middle, "", &font_caslon_12, MUTED);
+    lv_subject_add_observer_obj(&state.earned, update_earned, earned, nullptr);
 
     lv_obj_t *bottom = row(v);
     lv_obj_set_width(bottom, LV_PCT(100));
@@ -282,6 +319,7 @@ static void build_drift(lv_obj_t *v)
     lv_obj_set_style_pad_hor(band, 9, 0);
     lv_obj_t *name = label(band, "", &font_fell_16, ALARM_TEXT);
     lv_subject_add_observer_obj(&state.drift_label, update_drift_name, name, nullptr);
+    lv_subject_add_observer_obj(&state.drift_kind, update_drift_name, name, nullptr);
     lv_obj_t *drift_time = label(band, "", &font_fell_16, ALARM_TEXT);
     lv_subject_add_observer_obj(&state.drift_seconds, update_drift_time, drift_time, nullptr);
 
@@ -289,7 +327,8 @@ static void build_drift(lv_obj_t *v)
     lv_obj_set_width(middle, LV_PCT(100));
     lv_obj_t *port = porthole(middle, 90);
     pet_view_create(port, 64, PET_MOOD_ANNOYED);
-    bubble(middle, "Kindly return to your studies.", 115);
+    lv_obj_t *note = bubble(middle, "", 115);
+    lv_subject_add_observer_obj(&state.drift_kind, update_drift_note, note, nullptr);
 
     lv_obj_t *bottom = row(v);
     lv_obj_set_width(bottom, LV_PCT(100));
@@ -298,6 +337,33 @@ static void build_drift(lv_obj_t *v)
     lv_subject_add_observer_obj(&state.timer_remaining_s, update_small_timer, timer, nullptr);
     lv_obj_t *paused = label(bottom, "", &font_fell_14, PAUSED);
     lv_subject_add_observer_obj(&state.base_multiplier, update_paused, paused, nullptr);
+}
+
+static void build_lost(lv_obj_t *v)
+{
+    AppState &state = AppState::instance();
+    lv_obj_set_style_pad_all(v, 0, 0);
+
+    lv_obj_t *band = row(v);
+    lv_obj_set_size(band, LV_PCT(100), 32);
+    lv_obj_set_style_bg_opa(band, LV_OPA_COVER, 0);
+    lv_obj_set_style_bg_color(band, c(TUBE_RIM), 0);
+    lv_obj_set_style_pad_hor(band, 9, 0);
+    label(band, "Laptop Lost", &font_fell_16, BRASS_HI);
+    label(band, "Paused", &font_fell_16, BRASS_HI);
+
+    lv_obj_t *middle = row(v, LV_FLEX_ALIGN_CENTER, 14);
+    lv_obj_set_width(middle, LV_PCT(100));
+    lv_obj_t *port = porthole(middle, 90);
+    pet_view_create(port, 64, PET_MOOD_SAD);
+    bubble(middle, "The timer waits. Plug the laptop back in, or go on alone.", 130);
+
+    lv_obj_t *bottom = row(v);
+    lv_obj_set_width(bottom, LV_PCT(100));
+    lv_obj_set_style_pad_hor(bottom, 9, 0);
+    lv_obj_t *timer = label(bottom, "", &font_plex_28, TUBE_RIM);
+    lv_subject_add_observer_obj(&state.timer_remaining_s, update_small_timer, timer, nullptr);
+    label(bottom, "timer held", &font_fell_14, MUTED);
 }
 
 static void on_screen_delete(lv_event_t *e)
@@ -321,6 +387,8 @@ void screen_focus(lv_obj_t *parent, lv_group_t *group)
     build_peek(ui.peek);
     ui.drift = view(content);
     build_drift(ui.drift);
+    ui.lost = view(content);
+    build_lost(ui.lost);
 
     lv_obj_t *bar = row(content, LV_FLEX_ALIGN_CENTER, 12);
     lv_obj_set_width(bar, LV_PCT(100));
@@ -338,4 +406,5 @@ void screen_focus(lv_obj_t *parent, lv_group_t *group)
     lv_subject_add_observer_obj(&state.focus_state, update_view, content, nullptr);
     lv_subject_add_observer_obj(&state.peek_active, update_view, content, nullptr);
     lv_subject_add_observer_obj(&state.always_show_timer, update_view, content, nullptr);
+    lv_subject_add_observer_obj(&state.session_paused, update_view, content, nullptr);
 }

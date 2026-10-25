@@ -1,5 +1,5 @@
-// 01 Home: pet name + level and XP, the pet in its porthole (tap to pet), a big Start and
-// tiles for Study, Pet and Circle. The knob cycles Start -> Study -> Pet -> Circle.
+// 01 Home: pet name + level, a "Laptop" lamp while the dashboard is coupled, and XP; the pet
+// in its porthole (tap to pet), a big Start and tiles for Study, Pet and Circle. The knob cycles Start -> Study -> Pet -> Circle.
 
 #include <ui/screens.hpp>
 #include <ui/navigator.hpp>
@@ -23,6 +23,13 @@ static void update_title(lv_observer_t *observer, lv_subject_t *subject)
 static void update_xp(lv_observer_t *observer, lv_subject_t *subject)
 {
     lv_label_set_text_fmt(lv_observer_get_target_obj(observer), "%d XP", (int)lv_subject_get_int(subject));
+}
+
+static void update_laptop(lv_observer_t *observer, lv_subject_t *subject)
+{
+    lv_obj_t *lamp = lv_observer_get_target_obj(observer);
+    if (lv_subject_get_int(subject)) lv_obj_remove_flag(lamp, LV_OBJ_FLAG_HIDDEN);
+    else lv_obj_add_flag(lamp, LV_OBJ_FLAG_HIDDEN);
 }
 
 static void update_lengths(lv_observer_t *observer, lv_subject_t *subject)
@@ -111,7 +118,16 @@ void screen_home(lv_obj_t *parent, lv_group_t *group)
     lv_obj_t *title = label(top, "", &font_fell_14);
     lv_subject_add_observer_obj(&state.pet_name, update_title, title, nullptr);
     lv_subject_add_observer_obj(&state.level, update_title, title, nullptr);
-    lv_obj_t *xp = label(top, "", &font_plex_12);
+    lv_obj_t *right = row(top, LV_FLEX_ALIGN_START, 12);
+    lv_obj_t *laptop = row(right, LV_FLEX_ALIGN_START, 5);
+    lv_obj_t *dot = box(laptop);
+    lv_obj_set_size(dot, 6, 6);
+    lv_obj_set_style_radius(dot, LV_RADIUS_CIRCLE, 0);
+    lv_obj_set_style_bg_opa(dot, LV_OPA_COVER, 0);
+    lv_obj_set_style_bg_color(dot, c(VERDIGRIS_HI), 0);
+    label(laptop, "Laptop", &font_caslon_12, MUTED);
+    lv_subject_add_observer_obj(&state.link_connected, update_laptop, laptop, nullptr);
+    lv_obj_t *xp = label(right, "", &font_plex_12);
     lv_subject_add_observer_obj(&state.xp, update_xp, xp, nullptr);
 
     // Middle: porthole + Start

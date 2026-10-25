@@ -28,7 +28,8 @@ typedef enum { PET_BODY_BOT, PET_BODY_CAT, PET_BODY_DOG, PET_BODY_COUNT } PetBod
 typedef enum { PET_FACE_PLAIN, PET_FACE_MONOCLE, PET_FACE_COUNT } PetFace;
 typedef enum { PET_FINISH_BRASS, PET_FINISH_COPPER, PET_FINISH_PEWTER, PET_FINISH_VERDIGRIS, PET_FINISH_COUNT } PetFinish;
 // "wound up" (break) uses pet.js's love mood
-typedef enum { PET_MOOD_HAPPY, PET_MOOD_LOVE, PET_MOOD_FOCUS, PET_MOOD_ANNOYED, PET_MOOD_SHH, PET_MOOD_SLEEP, PET_MOOD_COUNT } PetMood;
+// "sad": the laptop went silent and the session is paused (the dashboard shows it too)
+typedef enum { PET_MOOD_HAPPY, PET_MOOD_LOVE, PET_MOOD_FOCUS, PET_MOOD_ANNOYED, PET_MOOD_SHH, PET_MOOD_SLEEP, PET_MOOD_SAD, PET_MOOD_COUNT } PetMood;
 
 #define PET_GRID 16
 #define PET_LEVEL_GOGGLES 5
@@ -102,6 +103,12 @@ static const PetPaint pet_mood_shh_p[] = { PET_PAINT(PET_SLOT_LINE, pet_shh_line
 static const PetRect pet_sleep_line_r[] = { {4, 8, 3, 1}, {9, 8, 3, 1}, {7, 10, 2, 1} };
 static const PetPaint pet_mood_sleep_p[] = { PET_PAINT(PET_SLOT_LINE, pet_sleep_line_r) };
 
+static const PetRect pet_sad_line_r[] = {
+    {6, 6, 1, 1}, {5, 7, 1, 1}, {9, 6, 1, 1}, {10, 7, 1, 1}, {5, 8, 2, 1}, {9, 8, 2, 1},
+    {7, 10, 2, 1}, {6, 11, 1, 1}, {9, 11, 1, 1} };
+static const PetRect pet_sad_hi_r[] = { {4, 9, 1, 1} };   // a tear
+static const PetPaint pet_mood_sad_p[] = { PET_PAINT(PET_SLOT_LINE, pet_sad_line_r), PET_PAINT(PET_SLOT_HI, pet_sad_hi_r) };
+
 // ---- Accessories ----
 static const PetRect pet_goggles_shade_r[] = { {3, 5, 2, 1}, {7, 5, 2, 1}, {11, 5, 2, 1} };
 static const PetRect pet_goggles_mono_r[] = { {5, 4, 2, 2}, {9, 4, 2, 2} };
@@ -125,7 +132,8 @@ static const PetLayer pet_layer_metal = PET_LAYER(pet_metal_p);
 static const PetLayer pet_layer_body[PET_BODY_COUNT] = { PET_LAYER(pet_key_p), PET_LAYER(pet_cat_p), PET_LAYER(pet_dog_p) };
 static const PetLayer pet_layer_mood[PET_MOOD_COUNT] = {
     PET_LAYER(pet_mood_happy_p), PET_LAYER(pet_mood_love_p), PET_LAYER(pet_mood_focus_p),
-    PET_LAYER(pet_mood_annoyed_p), PET_LAYER(pet_mood_shh_p), PET_LAYER(pet_mood_sleep_p) };
+    PET_LAYER(pet_mood_annoyed_p), PET_LAYER(pet_mood_shh_p), PET_LAYER(pet_mood_sleep_p),
+    PET_LAYER(pet_mood_sad_p) };
 static const PetLayer pet_layer_goggles = PET_LAYER(pet_goggles_p);
 static const PetLayer pet_layer_tie = PET_LAYER(pet_tie_p);
 static const PetLayer pet_layer_hat = PET_LAYER(pet_hat_p);

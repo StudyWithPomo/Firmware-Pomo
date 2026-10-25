@@ -434,6 +434,40 @@ void pet_hearts(lv_obj_t *porthole)
     }
 }
 
+static lv_obj_t *s_notice;
+static lv_timer_t *s_notice_timer;
+
+static void close_notice()
+{
+    if (s_notice) lv_obj_delete_async(s_notice);
+    s_notice = nullptr;
+    if (s_notice_timer) lv_timer_pause(s_notice_timer);
+}
+
+void notice(const char *title, const char *detail, uint32_t ms)
+{
+    close_notice();
+    s_notice = column(lv_layer_top(), 2);
+    lv_obj_set_width(s_notice, 264);
+    lv_obj_align(s_notice, LV_ALIGN_TOP_MID, 0, 8);
+    lv_obj_set_flex_align(s_notice, LV_FLEX_ALIGN_CENTER, LV_FLEX_ALIGN_CENTER, LV_FLEX_ALIGN_CENTER);
+    lv_obj_set_style_bg_opa(s_notice, LV_OPA_COVER, 0);
+    lv_obj_set_style_bg_color(s_notice, c(PANEL), 0);
+    lv_obj_set_style_border_width(s_notice, 2, 0);
+    lv_obj_set_style_border_color(s_notice, c(BRASS_HI), 0);
+    lv_obj_set_style_pad_ver(s_notice, 7, 0);
+    lv_obj_set_style_pad_hor(s_notice, 10, 0);
+    label(s_notice, title, &font_fell_16, BRASS_HI);
+    if (detail && detail[0]) label(s_notice, detail, &font_caslon_12, PARCHMENT);
+    lv_obj_add_flag(s_notice, LV_OBJ_FLAG_CLICKABLE);
+    lv_obj_add_event_cb(s_notice, [](lv_event_t *) { close_notice(); }, LV_EVENT_CLICKED, nullptr);
+
+    if (!s_notice_timer) s_notice_timer = lv_timer_create([](lv_timer_t *) { close_notice(); }, ms, nullptr);
+    lv_timer_set_period(s_notice_timer, ms);
+    lv_timer_reset(s_notice_timer);
+    lv_timer_resume(s_notice_timer);
+}
+
 void ignore_hold() {}
 
 void format_mmss(char *buf, size_t size, int seconds)
@@ -442,6 +476,12 @@ void format_mmss(char *buf, size_t size, int seconds)
     int m = seconds / 60;
     if (m > 99) m = 99;
     snprintf(buf, size, "%02d:%02d", m, seconds % 60);
+}
+
+const char *roman(int n)
+{
+    static const char *const NUMERALS[] = {"I", "II", "III", "IV"};
+    return n >= 1 && n <= 4 ? NUMERALS[n - 1] : "?";
 }
 
 lv_obj_t *nixie_row(lv_obj_t *parent, const NixieSpec &spec, bool lit)

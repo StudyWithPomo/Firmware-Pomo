@@ -603,6 +603,52 @@ static void test_session_log()
     CHECK_EQ(logToday(test_log, 7), 4);
 }
 
+static void test_pause()
+{
+    puts("pause: the laptop went silent mid-study");
+    SessionCore s;
+    SessionSnapshot snap;
+    s.setPaused(true);                      // idle: nothing to pause
+    CHECK_EQ(s.paused(), false);
+
+    s.start(25, 5);
+    run(s, 90);
+    s.setDrift(true, "YouTube");
+    s.setPaused(true);
+    s.snapshot(&snap);
+    CHECK_EQ(snap.paused, true);
+    CHECK_EQ(snap.drifting, false);         // the laptop's drift went with the laptop
+    CHECK_STR(snap.drift_label, "");
+    const int left = snap.remaining_s;
+    CHECK_EQ(run(s, 600), -1);              // nothing counts while paused
+    s.snapshot(&snap);
+    CHECK_EQ(snap.remaining_s, left);
+
+    s.setPaused(false);
+    run(s, 30);
+    s.snapshot(&snap);
+    CHECK_EQ(snap.remaining_s, left - 30);
+    CHECK_EQ(snap.paused, false);
+
+    // Ending the session clears it, and the next one starts running
+    s.setPaused(true);
+    SessionEvent e;
+    CHECK_EQ(s.endEarly(&e), true);
+    CHECK_EQ(e.result.elapsed_min, 2);      // 90 + 30 s: the paused 10 minutes don't count
+    CHECK_EQ(s.paused(), false);
+    s.start(25, 5);
+    run(s, 10);
+    s.snapshot(&snap);
+    CHECK_EQ(snap.remaining_s, 25 * 60 - 10);
+
+    // Not during a break
+    SessionCore b;
+    b.start(25, 5);
+    run(b, 25 * 60);
+    b.setPaused(true);
+    CHECK_EQ(b.paused(), false);
+}
+
 static void test_copy_utf8()
 {
     puts("UTF-8 safe copy");
@@ -640,6 +686,7 @@ int main()
     test_ready();
     test_test_timing();
     test_session_log();
+    test_pause();
     test_copy_utf8();
     if (failures) {
         printf("%d check(s) failed\n", failures);

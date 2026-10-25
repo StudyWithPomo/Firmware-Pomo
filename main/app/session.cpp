@@ -44,6 +44,7 @@ void Session::publish(const SessionEvent *event)
 {
     SessionSnapshot snap;
     core.snapshot(&snap);
+    snap.laptop = laptopLinked();
     xQueueOverwrite(snapshot_queue, &snap);
     if (!event) return;
     for (int i = 0; i < event_queue_count; i++) {
@@ -69,12 +70,20 @@ void Session::onTick(void *arg)
     Session &s = instance();
     SessionEvent event;
     xSemaphoreTake(s.mutex, portMAX_DELAY);
+    const bool linked = s.laptopLinked();
+    const bool lost = s.laptop_was_linked && !linked;
+    s.laptop_was_linked = linked;
+    if (lost) {
+        s.core.setDrift(false, ""); // it can't tell us the drift ended any more
+        s.core.setPaused(true);     // only while studying
+    }
     const Phase before = s.core.phase();
     const bool happened = s.core.tick(&event);
     s.publish(happened ? &event : nullptr);
     const Phase after = s.core.phase();
     xSemaphoreGive(s.mutex);
 
+    if (lost) ESP_LOGW(TAG, "The laptop went silent%s", s.core.paused() ? ": session paused" : "");
     if (happened) {
         ESP_LOGI(TAG, "%s -> %s", phase_name(before), phase_name(after));
         if (event.type == SessionEventType::STUDY_ENDED) {
@@ -163,11 +172,44 @@ void Session::setXp(int xp)
     xSemaphoreGive(mutex);
 }
 
+bool Session::laptopLinked() const
+{
+    return laptop_armed && esp_timer_get_time() - laptop_heard_us < LAPTOP_TIMEOUT_S * 1000000LL;
+}
+
+void Session::laptopHeard(bool ping)
+{
+    xSemaphoreTake(mutex, portMAX_DELAY);
+    const bool was_linked = laptopLinked();
+    if (ping || laptop_armed) {
+        laptop_armed = true;
+        laptop_heard_us = esp_timer_get_time();
+        laptop_was_linked = true;
+    }
+    const bool resumed = core.paused();
+    if (resumed) core.setPaused(false);
+    if (resumed || was_linked != laptopLinked()) publish(nullptr);
+    xSemaphoreGive(mutex);
+    if (resumed) ESP_LOGI(TAG, "The laptop is back: session resumed");
+}
+
+void Session::forgetLaptop()
+{
+    xSemaphoreTake(mutex, portMAX_DELAY);
+    laptop_armed = false;
+    laptop_was_linked = false;
+    core.setPaused(false);
+    publish(nullptr);
+    xSemaphoreGive(mutex);
+    ESP_LOGI(TAG, "Going on without the laptop");
+}
+
 SessionSnapshot Session::snapshot()
 {
     SessionSnapshot snap;
     xSemaphoreTake(mutex, portMAX_DELAY);
     core.snapshot(&snap);
+    snap.laptop = laptopLinked();
     xSemaphoreGive(mutex);
     return snap;
 }

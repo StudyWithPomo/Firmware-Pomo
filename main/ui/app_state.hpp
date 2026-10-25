@@ -43,7 +43,7 @@ public:
 
     // A change requested by another task (the laptop link), applied in the LVGL task
     struct UiCommand {
-        enum Type : uint8_t { CONFIG, PEEK, LINK_SEEN } type;
+        enum Type : uint8_t { CONFIG, PEEK } type;
         bool has_user, has_pet_name, has_time, has_tz;
         char user[17];
         char pet_name[11];
@@ -89,11 +89,14 @@ public:
     lv_subject_t timer_total_s;
     lv_subject_t focus_state;       // 0 focused, 1 drift
     lv_subject_t drift_label;       // string, e.g. "YouTube"
+    lv_subject_t drift_kind;        // DriftKind of the label shown
     lv_subject_t drift_seconds;
     lv_subject_t peek_active;       // 0/1, the timer is lit for 5 s
+    lv_subject_t earned;            // XP earned so far this study session
+    lv_subject_t session_paused;    // 0/1: the laptop went silent, the study timer is held
 
     // Laptop link
-    lv_subject_t link_connected;    // 1 once the laptop has sent a valid message
+    lv_subject_t link_connected;    // 0/1: the laptop's heartbeat is coming in
 
     // Study log: bumps whenever log() changes (screens showing "today" also watch time_subject)
     lv_subject_t log_version;
@@ -121,6 +124,7 @@ public:
     void endSessionEarly();
     void startNextSession();                // during a break or when READY: the set's next session
     void endSet();                          // the whole set -> idle
+    void goOnAlone();                       // paused: stop waiting for the laptop
     void peek();                            // light the timer for 5 s
     void shh();                             // the pet hushes for 2 s
     void petted();                          // outside study, the pet is pleased for 2 s
@@ -149,6 +153,7 @@ private:
     void applyCommand(const UiCommand &cmd);
     void refreshMood();
     void recordSession(const SessionResult &result, bool completed);
+    void noticeResult(const SessionResult &result, bool early);
     SavedState currentState();
     void scheduleSave();
     void saveNow();

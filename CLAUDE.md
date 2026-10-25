@@ -85,7 +85,7 @@ Display and touch share one SPI bus: `display.c` initializes it, `touch.c` joins
   - `session.*`: a 1 s `esp_timer`, a mutex, a snapshot queue and event queues (`subscribe()` gives each listener its own).
   - `storage.*`: NVS namespace `pomo`; only changed keys are written. Includes the session log (`SessionLog` in `session_core`: sessions, sets, focused minutes, today).
 - `comms/`:
-  - `link.*`: JSON lines over UART0, per-transport `LineAssembler`, cJSON.
+  - `link.*`: JSON lines over UART0, per-transport `LineAssembler`, cJSON. Every line from the laptop calls `Session::laptopHeard()`; the dashboard's `ping` (every 2 s) arms the heartbeat. After 6 s of silence the laptop's drift is dropped and a study session pauses (`state.paused`, Focus shows "Laptop Lost" with **Go on alone**) until the laptop is heard again. A dashboard that never pings never pauses anything.
   - `bt_spp.*`: Bluedroid Classic SPP feeding the same handler.
 - `ui/`:
   - `app_state.*`: all `lv_subject`s. It drains the session queues and a `UiCommand` queue in a 50 ms `lv_timer`, navigates on session events, and autosaves 2 s after a change (XP immediately when a session is scored).
@@ -133,6 +133,7 @@ Cube OS was imported into this repo, then rebuilt milestone by milestone. The us
 | C | Break -> next session: `READY` phase and Ready screen, Start now / End set on Intermission, petting hearts, protocol phase `"ready"`. Plus test timing (30 s phases) behind a Study screen chip. |
 | PR #2 | Sidak: study length 15-90 in steps of 5, long rest = max(15, longest break), `earned` in `state`. Tested on hardware. |
 | `linked-play` (M7) | Study circle over ESP-NOW, by invite (see "Linked play" below). Tested on two boards. |
+| `frontend-parity` (local, not pushed) | Cross-referenced with Pomo-App `main` (`09fdd80`): heartbeat pause, pet.js's `sad` mood, session score on Intermission ("88% focused, +66 XP. Mochi is most proud."), level-up and ended-early notices (`theme::notice`), "Laptop" lamp on Home, Roman session numbers ("Session II of IV"), drift wording per kind ("Gone Idle", camera labels as the dashboard's), "+N XP so far" on Peek. Preview, soak and IDF-flag compile only; **not flashed**. Focus now peaks at ~50 KB of LVGL memory (was ~45). |
 | Buzzer | Haptic-style clicks and timer chimes (`hal/buzzer.*`). Compile-checked with the IDF flags; **not yet heard on hardware** (volumes and pitches may need tuning in `buzzer.h`). |
 
 Other notes:
@@ -161,7 +162,6 @@ Other notes:
   - send `time`/`tz` in `config`
   - follow the device's `start`/`state`/`end` instead of running its own timer and XP
   - drop hearts
-  - add a heartbeat so the device can tell the laptop disconnected (today a drift sent before a disconnect stays on)
 - **Smaller loose ends:**
   - Touch calibration (`raw_x_min` and friends in `touch.c`) is still the old Cube OS panel's. Tap logs (`touch: tap raw ...`) give the values for this panel.
   - IM Fell's old-style figures make "Lv 1" read like "Lv i". Consider Plex for numbers.

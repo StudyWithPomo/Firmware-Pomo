@@ -57,6 +57,7 @@ int SessionCore::phaseS(Phase phase) const
 void SessionCore::beginStudy()
 {
     phase_ = Phase::STUDY;
+    paused_ = false;
     total_s_ = remaining_s_ = phaseS(Phase::STUDY);
     minute_s_ = 0;
     minute_drift_s_ = 0;
@@ -70,6 +71,7 @@ void SessionCore::beginStudy()
 void SessionCore::goIdle()
 {
     phase_ = Phase::IDLE;
+    paused_ = false;
     index_ = 1;
     remaining_s_ = total_s_ = 0;
     resetCamera();
@@ -89,6 +91,7 @@ void SessionCore::closeMinute()
 
 SessionResult SessionCore::finishStudy()
 {
+    paused_ = false;
     SessionResult r = {};
     r.focused_min = focused_min_;
     r.elapsed_min = elapsed_min_;
@@ -182,6 +185,7 @@ bool SessionCore::endSet(SessionEvent *out)
 bool SessionCore::tick(SessionEvent *out)
 {
     if (phase_ == Phase::IDLE || phase_ == Phase::READY) return false;
+    if (paused_) return false;
 
     if (phase_ == Phase::STUDY) tickCamera();
 
@@ -243,6 +247,18 @@ void SessionCore::setDrift(bool active, const char *label, DriftKind kind)
         laptop_label_[0] = '\0';
     }
     driftChanged(was);
+}
+
+void SessionCore::setPaused(bool paused)
+{
+    if (!paused) {
+        paused_ = false;
+        return;
+    }
+    if (phase_ != Phase::STUDY) return;
+    paused_ = true;
+    setDrift(false, "");
+    resetCamera();
 }
 
 void SessionCore::setFocus(CameraState state, const char *label)
@@ -311,6 +327,8 @@ void SessionCore::snapshot(SessionSnapshot *out) const
     out->study_min = study_min_;
     out->break_min = break_min_;
     out->test = test_ && phase_ != Phase::IDLE;
+    out->paused = paused_;
+    out->laptop = false;
     out->remaining_s = remaining_s_;
     out->total_s = total_s_;
     out->drifting = drifting();

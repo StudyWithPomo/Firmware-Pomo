@@ -12,6 +12,7 @@
 #include <comms/link.hpp>
 #include <comms/circle.hpp>
 #include <hal/buzzer.h>
+#include <ui/theme.hpp>
 
 #include "esp_log.h"
 
@@ -67,8 +68,11 @@ AppState::AppState() {
     lv_subject_init_int(&timer_total_s, 0);
     lv_subject_init_int(&focus_state, 0);
     lv_subject_init_string(&drift_label, drift_label_buf, drift_label_prev, sizeof(drift_label_buf), "");
+    lv_subject_init_int(&drift_kind, (int)DriftKind::NONE);
     lv_subject_init_int(&drift_seconds, 0);
     lv_subject_init_int(&peek_active, 0);
+    lv_subject_init_int(&earned, 0);
+    lv_subject_init_int(&session_paused, 0);
     lv_subject_init_int(&link_connected, 0);
     lv_subject_init_int(&log_version, 0);
 }
@@ -196,9 +200,6 @@ void AppState::applyCommand(const UiCommand &cmd) {
         case UiCommand::PEEK:
             if ((Phase)lv_subject_get_int(&phase) == Phase::STUDY) peek();
             break;
-        case UiCommand::LINK_SEEN:
-            lv_subject_set_int(&link_connected, 1);
-            break;
     }
 }
 
@@ -239,6 +240,9 @@ void AppState::applySnapshot(const SessionSnapshot &snap) {
     // hand, here or from the laptop (soft). Snapshots arrive before events, so remember this.
     if (snap.phase == Phase::LONG_REST) rest_running_out = snap.remaining_s <= 1;
     else if (snap.phase != Phase::IDLE) rest_running_out = false;
+    const bool was_paused = lv_subject_get_int(&session_paused);
+    if (snap.paused && !was_paused) buzzer_play(BUZZ_LINK_LOST);
+    else if (!snap.paused && was_paused && snap.phase == Phase::STUDY && snap.laptop) buzzer_play(BUZZ_LINK_BACK);
 
     lv_subject_set_int(&phase, (int)snap.phase);
     lv_subject_set_int(&session_index, snap.session_index);
@@ -247,7 +251,11 @@ void AppState::applySnapshot(const SessionSnapshot &snap) {
     lv_subject_set_int(&timer_remaining_s, snap.remaining_s);
     if (strcmp(lv_subject_get_string(&drift_label), snap.drift_label) != 0)
         lv_subject_copy_string(&drift_label, snap.drift_label);
+    lv_subject_set_int(&drift_kind, (int)snap.drift_kind);
     lv_subject_set_int(&drift_seconds, snap.drift_s);
+    lv_subject_set_int(&earned, snap.earned);
+    lv_subject_set_int(&session_paused, snap.paused ? 1 : 0);
+    lv_subject_set_int(&link_connected, snap.laptop ? 1 : 0);
     lv_subject_set_int(&focus_state, snap.drifting ? 1 : 0);
     lv_subject_set_int(&multiplier, snap.multiplier);
     lv_subject_set_int(&base_multiplier, snap.base_multiplier);
@@ -269,6 +277,7 @@ void AppState::handleEvent(const SessionEvent &event) {
         case SessionEventType::STUDY_ENDED:
             buzzer_play(event.result.session_index >= SessionCore::SESSIONS_PER_SET
                             ? BUZZ_LONG_REST : BUZZ_BREAK_START);
+            noticeResult(event.result, false); // the Intermission screen shows the score itself
             last_result = event.result;
             lv_subject_set_int(&xp, event.result.xp);
             recordSession(event.result, true);
@@ -277,6 +286,7 @@ void AppState::handleEvent(const SessionEvent &event) {
             break;
         case SessionEventType::ENDED_EARLY:
             buzzer_play(BUZZ_END);
+            noticeResult(event.result, true);
             last_result = event.result;
             lv_subject_set_int(&xp, event.result.xp);
             recordSession(event.result, false);
@@ -292,6 +302,27 @@ void AppState::handleEvent(const SessionEvent &event) {
             buzzer_play(BUZZ_BREAK_OVER);
             nav.reset(ScreenID::READY);
             break;
+    }
+}
+
+// The time card's headline on the laptop, in a notice on the device: a level-up (with the
+// accessory it unlocks), or the score of a session ended early, which goes straight Home
+void AppState::noticeResult(const SessionResult &r, bool early) {
+    const char *pet = lv_subject_get_string(&pet_name);
+    char detail[48] = "";
+    if (early && r.elapsed_min == 0) snprintf(detail, sizeof(detail), "%s barely got started.", pet);
+    else if (early && r.penalty) snprintf(detail, sizeof(detail), "%d%% focused · " UI_MINUS "%d XP", r.pct, -r.xp_delta);
+    else if (early) snprintf(detail, sizeof(detail), "%d%% focused · +%d XP", r.pct, r.xp_delta);
+
+    if (SessionCore::levelFor(r.xp - r.xp_delta) < r.level) {
+        char title[32];
+        snprintf(title, sizeof(title), "%s reached Level %d!", pet, r.level);
+        const char *unlock = r.level == PET_LEVEL_GOGGLES ? "Goggles unlocked."
+                           : r.level == PET_LEVEL_TIE     ? "Bow tie unlocked."
+                           : r.level == PET_LEVEL_HAT     ? "Top hat unlocked." : nullptr;
+        theme::notice(title, unlock ? unlock : detail);
+    } else if (early) {
+        theme::notice("Ended early", detail);
     }
 }
 
@@ -314,7 +345,8 @@ void AppState::refreshMood() {
     PetMood mood = PET_MOOD_HAPPY;
     switch ((Phase)lv_subject_get_int(&phase)) {
         case Phase::STUDY:
-            if (lv_subject_get_int(&focus_state)) mood = PET_MOOD_ANNOYED;
+            if (lv_subject_get_int(&session_paused)) mood = PET_MOOD_SAD;
+            else if (lv_subject_get_int(&focus_state)) mood = PET_MOOD_ANNOYED;
             else mood = shh_active ? PET_MOOD_SHH : PET_MOOD_FOCUS;
             break;
         case Phase::BREAK:
@@ -349,6 +381,10 @@ void AppState::startNextSession() {
 
 void AppState::endSet() {
     Session::instance().endSet();
+}
+
+void AppState::goOnAlone() {
+    Session::instance().forgetLaptop();
 }
 
 void AppState::peek() {

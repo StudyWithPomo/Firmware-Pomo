@@ -116,6 +116,11 @@ lv_obj_t *list_row(lv_obj_t *parent, lv_group_t *group, const char *text,
 // Decoration only: there's no hearts stat.
 void pet_hearts(lv_obj_t *porthole);
 
+// A notice card at the top of the screen for `ms` ("Mochi reached Level 5!" / "Goggles
+// unlocked."). It lives on the top layer, so it stays over a screen change; a tap dismisses it
+// and a new notice replaces it. `detail` may be empty.
+void notice(const char *title, const char *detail, uint32_t ms = 4000);
+
 // A hold handler that does nothing, for screens where going back makes no sense (a break)
 void ignore_hold();
 
@@ -135,6 +140,8 @@ void nixie_set(lv_obj_t *row, int seconds);
 
 // "MM:SS"
 void format_mmss(char *buf, size_t size, int seconds);
+// Session numbers the way the dashboard writes them: "I" to "IV" ("?" outside 1-4)
+const char *roman(int n);
 
 // ---- Study circle lamps ----
 

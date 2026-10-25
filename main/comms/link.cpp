@@ -120,6 +120,7 @@ static void send_state(const SessionSnapshot &s)
     cJSON_AddNumberToObject(o, "xp", s.xp);
     cJSON_AddNumberToObject(o, "level", s.level);
     if (s.phase == Phase::STUDY) cJSON_AddNumberToObject(o, "earned", s.earned);
+    if (s.paused) cJSON_AddBoolToObject(o, "paused", true);
     send_json(o);
 }
 
@@ -208,7 +209,8 @@ static void handle_focus(const cJSON *msg)
 {
     static const char *const STATES[] = {"calibrating", "focused", "drifting", "unfocused"};
     static const char *const REASONS[] = {"absent", "drowsy", "looking_away", "slouching", "bad_window"};
-    static const char *const LABELS[] = {"Away", "Drowsy", "Looking away", "Slouching", "Off task"};
+    // The dashboard's words for them (app.js CAMERA_LABELS), so both screens agree
+    static const char *const LABELS[] = {"Away from desk", "Drowsy", "Looking away", "Slouching", "Off task"};
 
     const cJSON *state = cJSON_GetObjectItemCaseSensitive(msg, "state");
     const int s = cJSON_IsString(state) ? lookup(state->valuestring, STATES, 4) : -1;
@@ -235,6 +237,8 @@ static void handle_line(const char *line)
         cJSON_Delete(msg);
         return;
     }
+
+    Session::instance().laptopHeard(strcmp(t->valuestring, "ping") == 0);
 
     if (strcmp(t->valuestring, "drift") == 0) {
         const cJSON *active = cJSON_GetObjectItemCaseSensitive(msg, "active");
@@ -263,11 +267,8 @@ static void handle_line(const char *line)
         cmd.type = AppState::UiCommand::PEEK;
         AppState::instance().post(cmd);
     }
-    // Anything else (break, finished, ...) is ignored: the device runs the session
+    // Anything else (ping, break, finished, ...) is ignored: the device runs the session
 
-    AppState::UiCommand seen = {};
-    seen.type = AppState::UiCommand::LINK_SEEN;
-    AppState::instance().post(seen);
     cJSON_Delete(msg);
 }
 

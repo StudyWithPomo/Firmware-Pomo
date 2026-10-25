@@ -131,7 +131,7 @@ static void pet_sheet(bool moods)
 
     static const char *const finishes[] = {"brass", "copper", "pewter", "verdigris"};
     static const char *const bodies[] = {"bot", "cat", "dog"};
-    static const char *const mood_names[] = {"happy", "love", "focus", "annoyed", "shh", "sleep"};
+    static const char *const mood_names[] = {"happy", "love", "focus", "annoyed", "shh", "sleep", "sad"};
 
     const int n = moods ? PET_MOOD_COUNT : PET_BODY_COUNT * PET_FINISH_COUNT;
     for (int i = 0; i < n; i++) {
@@ -196,6 +196,10 @@ static void soak(int rounds)
         pump(100);
         state.peek();
         advance_seconds(6);
+        Session::instance().laptopHeard(true);  // the laptop goes silent: paused, then alone
+        advance_seconds(8);
+        state.goOnAlone();
+        pump(100);
         Session::instance().setDrift(true, "YouTube");
         advance_seconds(4);
         Session::instance().setDrift(false, nullptr);
@@ -254,6 +258,11 @@ int main(int argc, char **argv)
 
     nav_reset(ScreenID::HOME);
     shot("01_home_solo", "01 Home, studying solo");
+    Session::instance().laptopHeard(true);
+    pump(100);
+    shot("01_home_laptop", "01 Home, the laptop coupled (heartbeat coming in)");
+    state.goOnAlone();
+    pump(1100);
 
     AppState::CircleView solo = {};
     solo.can_invite = true;
@@ -396,6 +405,20 @@ int main(int argc, char **argv)
     shot("04_drift", "04 Drift: YouTube for 0:31");
     Session::instance().setDrift(false, nullptr);
     advance_seconds(1);
+    Session::instance().setDrift(true, "Idle", DriftKind::IDLE);
+    advance_seconds(75);
+    shot("04_drift_idle", "04 Drift: gone idle for 1:15");
+    Session::instance().setDrift(false, nullptr);
+    advance_seconds(1);
+
+    // The dashboard's heartbeat stops: the timer is held until it's back (or Go on alone)
+    Session::instance().laptopHeard(true);
+    advance_seconds(8);
+    shot("04b_laptop_lost", "04b Laptop lost: session paused");
+    Session::instance().laptopHeard(true);
+    pump(100);
+    state.goOnAlone();
+    pump(100);
 
     sim_encoder_hold();
     pump(50);
@@ -414,7 +437,7 @@ int main(int argc, char **argv)
 
     // Run out the break -> Ready, then Finish for now -> Home
     advance_seconds(Session::instance().snapshot().remaining_s);
-    shot("05b_ready", "05b Ready for session 2 of 4?");
+    shot("05b_ready", "05b Ready for session II of IV?");
     focus_next();
     click_focused();
     pump(100);
@@ -425,6 +448,25 @@ int main(int argc, char **argv)
     nav_go(ScreenID::STATUS);
     shot("06_status_log", "Pet status, after a session");
 
+    // Ended early: the score in a notice over Home (the laptop prints the time card)
+    nav_reset(ScreenID::HOME);
+    state.startSession(25, 5);
+    advance_seconds(4 * 60 + 5);
+    state.endSessionEarly();
+    pump(200);
+    shot("01_home_ended_early", "01 Home, after ending a session early");
+    pump(4200);
+
+    // Reaching Lv 5 unlocks the goggles
+    Session::instance().setXp(1990);
+    state.startSession(25, 5);
+    advance_seconds(25 * 60);
+    pump(200);
+    shot("05_intermission_levelup", "05 Intermission, the session reached Lv 5");
+    pump(4200);
+    state.endSet();
+    pump(200);
+
     Session::instance().setXp(7200); // Lv 15: goggles, bow tie, top hat
     nav_reset(ScreenID::HOME);
     shot("01_home_lv15", "01 Home at Lv 15 (all accessories)");
@@ -432,7 +474,7 @@ int main(int argc, char **argv)
     pet_sheet(false);
     shot("pets_finishes", "Pet: 3 bodies x 4 finishes");
     pet_sheet(true);
-    shot("pets_moods", "Pet: the 6 moods");
+    shot("pets_moods", "Pet: the 7 moods");
 
     fclose(s_index);
     if (const char *rounds = getenv("POMO_SOAK")) soak(atoi(rounds));
